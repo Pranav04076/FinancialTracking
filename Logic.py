@@ -41,6 +41,20 @@ def getMonthlySummary():
     summary['Balance'] = summary['Credit'] - summary['Debit']
     return summary
 
+#SPECIAL FUNCTION TO GET SPECIFIC MONTH SUMMARY
+def getSpecificMonthSummary(month):
+    monthly_summary = getMonthlySummary()
+    month = input("Enter month number (1-12) to view summary: ")
+    try:
+        month_num = int(month)
+        if 1 <= month_num <= 12:
+            print(f"Monthly Summary for Month {month_num}:")
+            print(monthly_summary.loc[month_num])
+        else:
+            print("Please enter a valid month number between 1 and 12.")
+    except ValueError:
+        print("Invalid input. Please enter a numeric month number between 1 and 12.")
+
 #AUTO-SIZING COLUMNS SO NOTHING GETS CUT OFF
 def autosize(ws):
     for col_cells in ws.columns:
@@ -66,78 +80,74 @@ def styleHeader(ws):
         c.border = Border(top = double, left = double, right = double, bottom = thin)
 
 def Total(data, type):
-    data.merge_cells('G1:H1')
-    data.merge_cells('G2:H2')
     return data.loc[data['type'] == type, 'amount'].sum()
 
-#LOADING DATA
-expense_raw= pd.read_csv('bank_statements.csv')
 
-expense_data = expense_raw[['type', 'mode','amount', 'valueDate', 'narration']]
+def createExcel(input_file):
+    #LOADING DATA
+    expense_raw= pd.read_csv(input_file)
 
-#OUTPUT TO EXCEL FILE
-expense_data.to_excel('expense.xlsx', index = False)
+    expense_data = expense_raw[['type', 'mode','amount', 'valueDate', 'narration']]
 
-#MODIFYING EXCEL FILE
-wb = load_workbook('expense.xlsx')
-overall_data = wb.active
+    #OUTPUT TO EXCEL FILE
+    expense_data.to_excel('expense.xlsx', index = False)
 
-overall_data.title = 'overall_data'
+    #MODIFYING EXCEL FILE
+    wb = load_workbook('expense.xlsx')
+    overall_data = wb.active
 
-serialNumbers(overall_data)
+    overall_data.title = 'overall_data'
 
-#NEW WORKSHEET FOR DEBITS
-debit_data = expense_data.loc[expense_data['type']=='DEBIT']
-debit_sheet = newWorksheet(wb, 'DEBIT', debit_data)
-serialNumbers(debit_sheet)
+    serialNumbers(overall_data)
 
-#NEW WORKSHEET FOR CREDITS
-credit_data = expense_data.loc[expense_data['type']=='CREDIT']
-credit_sheet = newWorksheet(wb, 'CREDIT', credit_data)
-serialNumbers(credit_sheet)
+    #NEW WORKSHEET FOR DEBITS
+    debit_data = expense_data.loc[expense_data['type']=='DEBIT']
+    debit_sheet = newWorksheet(wb, 'DEBIT', debit_data)
 
-#TOTAL DEBIT
-total_debit = Total(debit_sheet, 'DEBIT')
-debit_sheet['G1'] = 'Total Debit'
-debit_sheet['G2'] = total_debit
-debit_sheet['G2'].font = Font(bold=True)
+    #NEW WORKSHEET FOR CREDITS
+    credit_data = expense_data.loc[expense_data['type']=='CREDIT']
+    credit_sheet = newWorksheet(wb, 'CREDIT', credit_data)
 
-#TOTAL CREDIT
-total_credit = Total(credit_sheet, 'CREDIT')
-credit_sheet['G1'] = 'Total Credit'
-credit_sheet['G2'] = total_credit
-credit_sheet['G2'].font = Font(bold=True)
+    #TOTAL DEBIT
+    debit_sheet.merge_cells('G1:H1')
+    debit_sheet.merge_cells('G2:H2')
+    total_debit = Total(debit_data, 'DEBIT')
+    debit_sheet['G1'] = 'Total Debit'
+    debit_sheet['G2'] = total_debit
+    debit_sheet['G2'].font = Font(bold=True)
 
-#TOTAL BALANCE
-overall_data.merge_cells('G1:H1')
-overall_data.merge_cells('G2:H2')
-balance = total_credit - total_debit
-overall_data['G1'] = 'Balance'
-overall_data['G2'] = balance
-overall_data['G2'].font = Font(bold=True)    
+    #TOTAL CREDIT.
+    credit_sheet.merge_cells('G1:H1')
+    credit_sheet.merge_cells('G2:H2')
+    total_credit = Total(credit_data, 'CREDIT')
+    credit_sheet['G1'] = 'Total Credit'
+    credit_sheet['G2'] = total_credit
+    credit_sheet['G2'].font = Font(bold=True)
+
+    #TOTAL BALANCE
+    overall_data.merge_cells('G1:H1')
+    overall_data.merge_cells('G2:H2')
+    balance = total_credit - total_debit
+    overall_data['G1'] = 'Balance'
+    overall_data['G2'] = balance
+    overall_data['G2'].font = Font(bold=True)    
 
 
-#MAKING BOLD AND COLOR
-styleHeader(overall_data)
-styleHeader(debit_sheet)
-styleHeader(credit_sheet)
+    #MAKING BOLD AND COLOR
+    styleHeader(overall_data)
+    styleHeader(debit_sheet)
+    styleHeader(credit_sheet)
 
-#Autosize
-for sheet in (overall_data, debit_sheet, credit_sheet):
-    autosize(sheet)
+    #Autosize
+    for sheet in (overall_data, debit_sheet, credit_sheet):
+        autosize(sheet)
 
-#SAVING EXCEL
-wb.save('expense.xlsx')
+    #SAVING EXCEL
+    wb.save('expense.xlsx')
 
-monthly_summary = getMonthlySummary()
-month = input("Enter month number (1-12) to view summary: ")
-try:
-    month_num = int(month)
-    if 1 <= month_num <= 12:
-        print(f"Monthly Summary for Month {month_num}:")
-        print(monthly_summary.loc[month_num])
-    else:
-        print("Please enter a valid month number between 1 and 12.")
-except ValueError:
-    print("Invalid input. Please enter a numeric month number between 1 and 12.")
 
+
+createExcel('bank_statements.csv')
+
+specific_month_summary = getSpecificMonthSummary(getMonthlySummary())
+print(specific_month_summary)

@@ -83,21 +83,20 @@ def Total(data, type):
     return data.loc[data['type'] == type, 'amount'].sum()
 
 
-def createExcel(input_file):
+def createExcel(input_file, output_file):
     #LOADING DATA
     expense_raw= pd.read_csv(input_file)
 
     expense_data = expense_raw[['type', 'mode','amount', 'valueDate', 'narration']]
 
-    #OUTPUT TO EXCEL FILE
-    expense_data.to_excel('expense.xlsx', index = False)
-
     #MODIFYING EXCEL FILE
-    wb = load_workbook('expense.xlsx')
+    wb = Workbook()
     overall_data = wb.active
 
     overall_data.title = 'overall_data'
 
+    for row in dataframe_to_rows(expense_data, index = False, header = True):
+        overall_data.append(row)
     serialNumbers(overall_data)
 
     #NEW WORKSHEET FOR DEBITS
@@ -142,12 +141,16 @@ def createExcel(input_file):
     for sheet in (overall_data, debit_sheet, credit_sheet):
         autosize(sheet)
 
+    print("createExcel called", flush=True)
+    print("Sheets before save:", wb.sheetnames, flush=True)
+    print("Output file:", output_file, flush=True)
+
     #SAVING EXCEL
-    wb.save('expense.xlsx')
+    wb.save(output_file)
+
+    return output_file
 
 
 
-createExcel('bank_statements.csv')
 
-specific_month_summary = getSpecificMonthSummary(getMonthlySummary())
-print(specific_month_summary)
+

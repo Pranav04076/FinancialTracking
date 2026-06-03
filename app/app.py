@@ -9,6 +9,8 @@ import uuid
 import tempfile
 from openpyxl import load_workbook, Workbook
 import pandas as pd
+from datetime import datetime
+from schemas import TransactionType
 
 latest_file = None
 
@@ -64,6 +66,31 @@ async def upload_file(file: UploadFile = File(...)):
         #    shutil.rmtree(temp_dir, ignore_errors=True)
 
         await file.close()
+
+@app.post('/newTransaction/')
+async def addNewTransaction(type: TransactionType = Form(...),
+                            mode: str = Form(...),
+                            amount: float = Form(...),
+                            date: datetime = Form(...),
+                            category: str = Form(...)):
+    wb = load_workbook(latest_file)
+    ws = wb['overall_data']
+    next_sno = ws.max_row
+    newData = [next_sno, type.value, mode, amount, date, category]
+    
+    ws.append(newData)
+
+    if type==TransactionType.DEBIT:
+        ws = wb['DEBIT']
+        ws.append(newData)
+        
+    elif type==TransactionType.CREDIT:
+        ws = wb['CREDIT']
+        ws.append(newData)
+        
+    wb.save(latest_file)
+
+    return {'message': "Transaction Added"}
 
 @app.get('/Total_Debit/')
 async def get_Debit():

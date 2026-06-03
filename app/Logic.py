@@ -141,10 +141,6 @@ def createExcel(input_file, output_file):
     for sheet in (overall_data, debit_sheet, credit_sheet):
         autosize(sheet)
 
-    print("createExcel called", flush=True)
-    print("Sheets before save:", wb.sheetnames, flush=True)
-    print("Output file:", output_file, flush=True)
-
     #SAVING EXCEL
     wb.save(output_file)
 

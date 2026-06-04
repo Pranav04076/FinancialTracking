@@ -3,14 +3,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from contextlib import asynccontextmanager
 from sqlalchemy import select
 from app.Logic import createExcel
+from app.db import engine, Base
+from app.models import User, Transaction
+from app.schemas import TransactionType
+from app.routes import auth
 import shutil
 import os
 import uuid
 import tempfile
 from openpyxl import load_workbook, Workbook
 import pandas as pd
-from datetime import datetime
-from schemas import TransactionType
+from datetime import date
+from app.db import DATABASE_URL
 
 latest_file = None
 
@@ -27,12 +31,23 @@ def calculate_totals():
 
     total_debit = debit['amount'].sum()
     total_credit = credit['amount'].sum()
-
+    
     return total_debit, total_credit
 
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
 
+
+    print(DATABASE_URL)
+
+    Base.metadata.create_all(bind=engine)
+
+    yield
+
+app = FastAPI(lifespan=lifespan)
+app.include_router(auth.router)
 
 @app.post("/upload/")
 async def upload_file(file: UploadFile = File(...)):
@@ -71,7 +86,7 @@ async def upload_file(file: UploadFile = File(...)):
 async def addNewTransaction(type: TransactionType = Form(...),
                             mode: str = Form(...),
                             amount: float = Form(...),
-                            date: datetime = Form(...),
+                            date: date = Form(...),
                             category: str = Form(...)):
     wb = load_workbook(latest_file)
     ws = wb['overall_data']

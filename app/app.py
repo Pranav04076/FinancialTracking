@@ -55,79 +55,79 @@ app.include_router(analytics.router)
 
 
 
-@app.post("/upload/")
-async def upload_file(file: UploadFile = File(...)):
-    global latest_file
-    temp_dir = None
-    try:
-        if not file.filename.endswith(('.csv', '.xlsx', '.pdf')):
-            raise HTTPException(status_code=400, detail="Invalid file type. Only CSV, XLSX, and PDF files are allowed.")
+# @app.post("/upload/")
+# async def upload_file(file: UploadFile = File(...)):
+#     global latest_file
+#     temp_dir = None
+#     try:
+#         if not file.filename.endswith(('.csv', '.xlsx', '.pdf')):
+#             raise HTTPException(status_code=400, detail="Invalid file type. Only CSV, XLSX, and PDF files are allowed.")
         
-        temp_dir =tempfile.mkdtemp()
-        out_dir = "C:/Users/LENOVO/OneDrive/Desktop/FinancialTracking/"
-        file_path = os.path.join(temp_dir, file.filename)
-        output_file = os.path.join(out_dir, "expense.xlsx")
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        #print("Before Create Excel", flush=True)
-        excel_file = createExcel(file_path, output_file)
-        latest_file = output_file
-        #print("After Create Excel", flush = True)
-        os.remove(file_path)
-        return {"message": "File uploaded and processed successfully."}
+#         temp_dir =tempfile.mkdtemp()
+#         out_dir = "C:/Users/LENOVO/OneDrive/Desktop/FinancialTracking/"
+#         file_path = os.path.join(temp_dir, file.filename)
+#         output_file = os.path.join(out_dir, "expense.xlsx")
+#         with open(file_path, "wb") as buffer:
+#             shutil.copyfileobj(file.file, buffer)
+#         #print("Before Create Excel", flush=True)
+#         excel_file = createExcel(file_path, output_file)
+#         latest_file = output_file
+#         #print("After Create Excel", flush = True)
+#         os.remove(file_path)
+#         return {"message": "File uploaded and processed successfully."}
     
-    except HTTPException:
-        raise
+#     except HTTPException:
+#         raise
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail = str(e))
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail = str(e))
     
-    finally: 
-        #if temp_dir:
-        #    shutil.rmtree(temp_dir, ignore_errors=True)
+#     finally: 
+#         #if temp_dir:
+#         #    shutil.rmtree(temp_dir, ignore_errors=True)
 
-        await file.close()
+#         await file.close()
 
-@app.post('/newTransaction/')
-async def addNewTransaction(type: TransactionType = Form(...),
-                            mode: str = Form(...),
-                            amount: float = Form(...),
-                            date: date = Form(...),
-                            category: str = Form(...)):
-    wb = load_workbook(latest_file)
-    ws = wb['overall_data']
-    next_sno = ws.max_row
-    newData = [next_sno, type.value, mode, amount, date, category]
+# @app.post('/newTransaction/')
+# async def addNewTransaction(type: TransactionType = Form(...),
+#                             mode: str = Form(...),
+#                             amount: float = Form(...),
+#                             date: date = Form(...),
+#                             category: str = Form(...)):
+#     wb = load_workbook(latest_file)
+#     ws = wb['overall_data']
+#     next_sno = ws.max_row
+#     newData = [next_sno, type.value, mode, amount, date, category]
     
-    ws.append(newData)
+#     ws.append(newData)
 
-    if type==TransactionType.DEBIT:
-        ws = wb['DEBIT']
-        ws.append(newData)
+#     if type==TransactionType.DEBIT:
+#         ws = wb['DEBIT']
+#         ws.append(newData)
         
-    elif type==TransactionType.CREDIT:
-        ws = wb['CREDIT']
-        ws.append(newData)
+#     elif type==TransactionType.CREDIT:
+#         ws = wb['CREDIT']
+#         ws.append(newData)
         
-    wb.save(latest_file)
+#     wb.save(latest_file)
 
-    return {'message': "Transaction Added"}
+#     return {'message': "Transaction Added"}
 
-@app.get('/Total_Debit/')
-async def get_Debit():
-    debit,_ = calculate_totals()
-    return {'Total Debit': debit}
+# @app.get('/Total_Debit/')
+# async def get_Debit():
+#     debit,_ = calculate_totals()
+#     return {'Total Debit': debit}
 
-@app.get('/Total_Credit/')
-async def get_Credit():
-    _,credit = calculate_totals()
-    return {'Total Credit': credit}
+# @app.get('/Total_Credit/')
+# async def get_Credit():
+#     _,credit = calculate_totals()
+#     return {'Total Credit': credit}
 
-@app.get("/Balance/")
-async def get_balance():
-    debit, credit= calculate_totals()    
+# @app.get("/Balance/")
+# async def get_balance():
+#     debit, credit= calculate_totals()    
 
-    total_balance = credit-debit
-    return {'Balance': total_balance}
+#     total_balance = credit-debit
+#     return {'Balance': total_balance}
 
 

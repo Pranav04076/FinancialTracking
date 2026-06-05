@@ -6,7 +6,7 @@ from app.Logic import createExcel
 from app.db import engine, Base
 from app.models import User, Transaction
 from app.schemas import TransactionType
-from app.routes import auth
+from app.routes import auth, transaction, analytics
 import shutil
 import os
 import uuid
@@ -40,14 +40,20 @@ async def lifespan(app: FastAPI):
     # Startup
 
 
-    print(DATABASE_URL)
+    #print(DATABASE_URL)
 
     Base.metadata.create_all(bind=engine)
 
     yield
 
 app = FastAPI(lifespan=lifespan)
+
+
 app.include_router(auth.router)
+app.include_router(transaction.router)
+app.include_router(analytics.router)
+
+
 
 @app.post("/upload/")
 async def upload_file(file: UploadFile = File(...)):

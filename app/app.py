@@ -6,7 +6,7 @@ from app.Logic import createExcel
 from app.db import engine, Base
 from app.models import User, Transaction
 from app.schemas import TransactionType
-from app.routes import auth, transaction, analytics
+from app.routes import auth, transaction, analytics, upload, budget
 import shutil
 import os
 import uuid
@@ -52,6 +52,8 @@ app = FastAPI(lifespan=lifespan)
 app.include_router(auth.router)
 app.include_router(transaction.router)
 app.include_router(analytics.router)
+app.include_router(upload.router)
+app.include_router(budget.router)
 
 
 

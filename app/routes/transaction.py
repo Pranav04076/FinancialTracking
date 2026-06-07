@@ -7,6 +7,7 @@ from app.db import get_db
 from app.dependencies import get_current_user
 from app.models import User
 from app.schemas import TransactionCreate, TransactionType, TransactionUpdate
+from app.ML.predictor import predict_category
 
 router = APIRouter(prefix = "/transactions", tags = ["transactions"])
 
@@ -22,7 +23,8 @@ def createTransaction(
         mode = transaction.mode,
         amount = transaction.amount,
         valueDate = transaction.valueDate,
-        narration = transaction.narration
+        narration = transaction.narration,
+        category = predict_category(transaction.narration)
     )
 
     db.add(new_Transaction)
@@ -112,8 +114,8 @@ def update_transaction(transaction_id: UUID,
     if update_data.valueDate is not None: 
         transaction.valueDate = update_data.valueDate
 
-    #if update_data.category is not None:
-        #transaction.category = update_data.narration
+    if update_data.category is not None:
+        transaction.category = update_data.category
 
     db.commit()
     db.refresh(transaction)
@@ -139,3 +141,5 @@ def delete_transaction(transaction_id: UUID,
     
     db.delete(transaction)
     db.commit()
+
+    return {"message": "Deleted Successfully"}

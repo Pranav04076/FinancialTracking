@@ -2,12 +2,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from app.models import Transaction
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, extract
 from app.db import get_db
 from app.dependencies import get_current_user
 from app.models import User
 from app.schemas import TransactionCreate, TransactionType, TransactionUpdate
-from datetime import date
+from app.services.insights import gather_user_data, get_ai_insights, build_prompt
+from datetime import datetime, date
 
 
 router = APIRouter(prefix = "/analytics", tags = ["analytics"])
@@ -206,4 +207,120 @@ def transactions_between(
             }
             for t in transactions
         ]
+    }
+
+@router.get("/monthly_savings")
+def get_monthly_savings(month: int = datetime.now().month,
+                        year: int = datetime.now().year,
+                        db: Session = Depends(get_db),
+                        current_user: User = Depends(get_current_user)):
+    
+    income = db.query(func.sum(Transaction.amount)).filter(Transaction.user_id==current_user.id,
+                                          Transaction.type== TransactionType.CREDIT,
+                                          extract("month", Transaction.valueDate)==month,
+                                          extract("year", Transaction.valueDate)==year).scalar() or 0
+    
+    expense =  db.query(func.sum(Transaction.amount)).filter(Transaction.user_id==current_user.id,
+                                          Transaction.type== TransactionType.DEBIT,
+                                          extract("month", Transaction.valueDate)==month,
+                                          extract("year", Transaction.valueDate)==year).scalar() or 0
+    
+    monthly_saving = income-expense
+    savings_rate = round((monthly_saving/income)*100, 2)
+
+    return {
+        "month": month,
+        "year": year,
+        "income": income,
+        "expense": expense,
+        "savings": monthly_saving,
+        "savings_rate": savings_rate
+    }
+
+@router.get("/recent_transactions")
+def get_recent_transactions(limit: int = 10,
+                            db: Session = Depends(get_db),
+                            current_user: User = Depends(get_current_user)):
+    
+    transactions = db.query(Transaction).filter(Transaction.user_id==current_user.id).order_by(Transaction.valueDate.desc()).limit(limit).all()
+
+    return [{
+        "amount": t.amount,
+        "type": t.type.value,
+        "category": t.category,
+        "narration": t.narration,
+        "date": t.valueDate,
+        "mode": t.mode
+    }for t in transactions]
+
+@router.get("category-breakdown")
+def category_breakdown(
+    month: int,
+    year: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    result = db.query(
+        Transaction.category,
+        func.sum(Transaction.amount).label("total")
+    ).filter(
+        Transaction.user_id == current_user.id,
+        Transaction.type == TransactionType.DEBIT,
+        func.extract("month", Transaction.valueDate) == month,
+        func.extract("year", Transaction.valueDate) == year
+    ).group_by(Transaction.category).order_by(func.sum(Transaction.amount).desc()).all()
+
+    total_spent = sum(r.total for r in result)
+
+    return [
+        {
+            "category": r.category,
+            "amount": round(r.total, 2),
+            "percentage": round((r.total / total_spent) * 100, 2) if total_spent > 0 else 0
+        }
+        for r in result
+    ]
+
+@router.get("/spending_trends/")
+def spending_trends(
+    year: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    result = db.query(
+        func.extract("month", Transaction.valueDate).label("month"),
+        func.sum(Transaction.amount).label("expense")
+    ).filter(
+        Transaction.user_id == current_user.id,
+        Transaction.type == TransactionType.DEBIT,
+        func.extract("year", Transaction.valueDate) == year
+    ).group_by("month").order_by("month").all()
+
+    months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+
+    return [
+        {
+            "month": months[int(r.month) - 1],
+            "month_number": int(r.month),
+            "expense": round(r.expense, 2)
+        }
+        for r in result
+    ]
+
+
+@router.get("/insights")
+def get_insights( month: int= datetime.now().month,
+                year: int = datetime.now().year,
+                db: Session = Depends(get_db),
+                current_user: User = Depends(get_current_user)):
+    
+    data = gather_user_data(current_user.id, month, year, db)
+    prompt = build_prompt(data, month, year)
+    insights = get_ai_insights(prompt)
+
+
+    return {
+        "month": month,
+        "year": year,
+        "inights": insights
     }

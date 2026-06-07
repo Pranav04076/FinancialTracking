@@ -4,7 +4,7 @@ from datetime import datetime, date
 from app.schemas import TransactionType
 from app.models import Transaction
 from app.services.helpers import get_mode, parse_date, extract_tables
-
+from app.ML.predictor import predict_category
 
 
 def parse_federal(file_path,user_id, db):
@@ -73,7 +73,8 @@ def parse_federal(file_path,user_id, db):
                         amount=amount,
                         valueDate=value_date,
                         narration=narration,
-                        mode= mode
+                        mode= mode,
+                        category = predict_category(narration)
             )
         
         transactions.append(transaction)

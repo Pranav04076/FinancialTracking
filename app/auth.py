@@ -3,6 +3,7 @@ from jose import jwt
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import os
+import secrets
 
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -29,3 +30,6 @@ def create_access_token(data: dict):
     return jwt.encode(
         to_encode, SECRET_KEY, algorithm = ALGORITHM
     )
+
+def create_refresh_token():
+    return secrets.token_hex(32)

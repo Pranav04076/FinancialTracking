@@ -5,26 +5,47 @@ from fastapi import HTTPException
 from app.models import Transaction
 from app.schemas import TransactionCreate, TransactionUpdate, TransactionType
 from app.ML.predictor import predict_category
+from app.logger import logger
 
 def createTransaction(
     transaction: TransactionCreate, 
     db: Session,
     userid: UUID):
-    new_Transaction = Transaction(
-        user_id = userid,
-        type = transaction.type,
-        mode = transaction.mode,
-        amount = transaction.amount,
-        valueDate = transaction.valueDate,
-        narration = transaction.narration,
-        category = predict_category(transaction.narration)
-    )
 
-    db.add(new_Transaction)
-    db.commit()
-    db.refresh(new_Transaction)
 
-    return new_Transaction
+    logger.info(f"Creating Transaction with for User {userid}")
+    
+    try:
+        new_Transaction = Transaction(
+            user_id = userid,
+            type = transaction.type,
+            mode = transaction.mode,
+            amount = transaction.amount,
+            valueDate = transaction.valueDate,
+            narration = transaction.narration,
+            category = predict_category(transaction.narration)["category"],
+            confidence = predict_category(transaction.narration)["confidence"]
+        )
+        
+        db.add(new_Transaction)
+        db.commit()
+        db.refresh(new_Transaction)
+        logger.info(f"Creating Transaction with for User {userid}")
+
+    except Exception as e:
+        logger.error(f"Failed to Create Transaction for User {userid}: {e}")
+        raise
+
+    return {
+            "transaction_id": new_Transaction.id,
+            "user_id" : userid,
+            "type" : transaction.type,
+            "mode" : transaction.mode,
+            "amount" : transaction.amount,
+            "valueDate" : transaction.valueDate,
+            "narration" : transaction.narration,
+            "category" : predict_category(transaction.narration)["category"],
+            "confidence" : predict_category(transaction.narration)["confidence"]}
 
 def get_transactions(
                     user_id: UUID,
@@ -34,14 +55,16 @@ def get_transactions(
                     ):
     
     transactions = (db.query(Transaction).filter(Transaction.user_id==user_id).offset(offset).limit(limit).all())
-
+    if transactions is None:
+        logger.warning(f"Transactions not found for user {user_id}")
+        raise HTTPException(status_code=401, detail = "Transaction not found")
     return transactions
 
 def get_balance(
                 db: Session,
                 user_id = UUID):
     
-
+    logger.info(f"Getting Balance of User {user_id}")
 
     credit = (
         db.query(func.sum(Transaction.amount))
@@ -72,6 +95,7 @@ def get_transaction_by_id(transaction_id: UUID,
                                                 Transaction.user_id==user_id)).first()
     
     if transaction is None:
+        logger.warning(f"Transaction {transaction_id} not found for User {user_id}")
         raise HTTPException(status_code=401,detail = 'Transaction ID not found')
     
     return  {
@@ -79,7 +103,8 @@ def get_transaction_by_id(transaction_id: UUID,
     "amount": transaction.amount,
     "mode": transaction.mode,
     "type": transaction.type.value,
-    "narration": transaction.narration
+    "narration": transaction.narration,
+    "category": transaction.category
 }
 
 def update_transaction(transaction_id: UUID,
@@ -87,7 +112,7 @@ def update_transaction(transaction_id: UUID,
                        user_id: UUID,
                        db: Session
                        ):
-    
+    logger.info(f"Updating Transaction {transaction_id} for User {user_id}")
     transaction = (db.query(Transaction).filter(Transaction.id == transaction_id,
                                                 Transaction.user_id==user_id)).first()
     

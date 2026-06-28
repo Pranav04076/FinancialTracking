@@ -15,6 +15,8 @@ class User(Base):
 
     hashed_password = Column(String, nullable=False)
 
+    refresh_tokens = Column(String, nullable=False)
+
 
 class Transaction(Base):
     __tablename__ = "transactions"
@@ -28,6 +30,7 @@ class Transaction(Base):
     valueDate = Column(Date, nullable = False)
     narration = Column(String, nullable = False)
     category = Column(String, nullable = False)
+    confidence = Column(Float, nullable = True)
 
 class Budget(Base):
     __tablename__ ="budgets"

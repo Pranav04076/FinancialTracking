@@ -3,6 +3,7 @@ import pandas as pd
 from app.models import Transaction
 from app.schemas import TransactionType
 from sqlalchemy.orm import Session
+from app.ML.predictor import predict_category
 
 
 REQUIRED_COLUMNS = {"type", "mode", "amount", "valuedate", "narration"}
@@ -57,7 +58,9 @@ def parse_csv(file_path: str, user_id, db: Session) -> tuple[int, int]:
             mode=str(row["mode"]).strip(),
             amount=float(row["amount"]),
             valueDate=row["valuedate"],
-            narration=str(row["narration"]).strip()
+            narration=str(row["narration"]).strip(),
+            category = str(predict_category(transaction.narration)["category"]),
+            confidence = float(predict_category(transaction.narration)["confidence"])
         )
         transactions.append(transaction)
         inserted += 1

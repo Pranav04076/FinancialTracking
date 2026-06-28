@@ -56,6 +56,7 @@ class TransactionResponse(BaseModel):
     valueDate: date
     narration: str
     category: str
+    confidence: float
 
     class Config:
         from_attributes = True
@@ -97,3 +98,7 @@ class BudgetResponse(BaseModel):
     monthly_limit: float
     class Config:
         from_attributes = True
+
+
+class RefreshTokenSchema(BaseModel):
+    refresh_tokens: str

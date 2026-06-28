@@ -76,7 +76,8 @@ def parse_idfc(file_path,user_id, db):
                         valueDate=value_date,
                         narration=narration,
                         mode= mode,
-                        category = predict_category(narration)
+                        category = predict_category(narration)["category"],
+                        confidence = predict_category(narration)["confidence"]
             )
         
         transactions.append(transaction)

@@ -56,7 +56,7 @@ class TransactionResponse(BaseModel):
     valueDate: date
     narration: str
     category: str
-    confidence: float
+    confidence: Optional[float] = None
 
     class Config:
         from_attributes = True

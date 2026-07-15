@@ -133,6 +133,7 @@ def update_transaction(transaction_id: UUID,
 
     if update_data.category is not None:
         transaction.category = update_data.category
+        transaction.confidence = None
 
     db.commit()
     db.refresh(transaction)

@@ -114,7 +114,7 @@ def get_recent_transactions_route(limit: int = 10,
     return get_recent_transactions(db, current_user.id, limit)
 
 
-@router.get("category-breakdown")
+@router.get("/category-breakdown")
 def category_breakdown_route(
     month: int,
     year: int,

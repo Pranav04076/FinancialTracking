@@ -35,7 +35,7 @@ def get_balance(db: Session,
 def total_debit(db: Session,
                 user_id: UUID):
     
-    total_debit = (db.query(func.sum(Transaction.amount)).filter(Transaction.user_id==user_id.id, 
+    total_debit = (db.query(func.sum(Transaction.amount)).filter(Transaction.user_id==user_id, 
                                                                  Transaction.type == TransactionType.DEBIT)).scalar() or 0
     
     return {"total_debit": total_debit}

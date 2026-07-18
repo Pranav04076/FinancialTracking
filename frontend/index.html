@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ledger — Personal Finance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#14181C;
+    --surface:#1D2328;
+    --surface-2:#242B31;
+    --paper:#F7F5F0;
+    --line:#3A4148;
+    --gold:#D4AF37;
+    --credit:#3FA796;
+    --debit:#C1584B;
+    --muted:#8B939B;
+    --text:#ECEAE4;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--ink);color:var(--text);font-family:'IBM Plex Sans',sans-serif;}
+  .amt, .mono, table td.num, .figure{font-family:'IBM Plex Mono',monospace; font-variant-numeric: tabular-nums;}
+  h1,h2,h3,.display{font-family:'Fraunces',serif;}
+  a{color:inherit;}
+
+  /* ---------- Auth screen ---------- */
+  #auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .ledger-card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:4px;
+    width:100%;max-width:400px;
+    padding:36px 32px;
+    position:relative;
+  }
+  .brand{display:flex;align-items:baseline;gap:10px;margin-bottom:4px;}
+  .brand .mark{font-family:'Fraunces',serif;font-size:28px;color:var(--gold);}
+  .brand .name{font-family:'Fraunces',serif;font-size:22px;font-style:italic;}
+  .tagline{color:var(--muted);font-size:13px;margin-bottom:28px;}
+  .tabs{display:flex;gap:0;margin-bottom:24px;border-bottom:1px solid var(--line);}
+  .tab-btn{flex:1;background:none;border:none;color:var(--muted);font-family:'IBM Plex Sans';font-size:14px;padding:10px 0;cursor:pointer;border-bottom:2px solid transparent;}
+  .tab-btn.active{color:var(--text);border-bottom-color:var(--gold);}
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:12px;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+  .field input{width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:3px;color:var(--text);padding:10px 12px;font-size:14px;font-family:'IBM Plex Sans';}
+  .field input:focus{outline:none;border-color:var(--gold);}
+  .btn{width:100%;background:var(--gold);color:var(--ink);border:none;border-radius:3px;padding:11px;font-weight:600;font-size:14px;cursor:pointer;font-family:'IBM Plex Sans';}
+  .btn:hover{filter:brightness(1.08);}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--text);}
+  .err{color:var(--debit);font-size:13px;margin:10px 0 0;min-height:16px;}
+  .api-base{margin-top:22px;padding-top:16px;border-top:1px solid var(--line);}
+  .api-base input{font-size:12px;}
+
+  /* ---------- App shell ---------- */
+  #app{display:none;min-height:100vh;}
+  .shell{display:grid;grid-template-columns:220px 1fr;min-height:100vh;}
+  .sidebar{background:var(--surface);border-right:1px solid var(--line);padding:24px 0;display:flex;flex-direction:column;}
+  .sidebar .brand{padding:0 24px;margin-bottom:32px;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:11px 24px;color:var(--muted);cursor:pointer;font-size:14px;border-left:2px solid transparent;}
+  .nav-item .num{font-family:'IBM Plex Mono';font-size:11px;color:var(--gold);opacity:0.7;}
+  .nav-item.active{color:var(--text);background:var(--surface-2);border-left-color:var(--gold);}
+  .nav-item:hover:not(.active){color:var(--text);}
+  .sidebar-foot{margin-top:auto;padding:16px 24px 0;border-top:1px solid var(--line);}
+  .sidebar-foot button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;font-family:'IBM Plex Sans';padding:8px 0;}
+  .sidebar-foot button:hover{color:var(--debit);}
+
+  main{padding:32px 40px;overflow-y:auto;}
+  .page{display:none;}
+  .page.active{display:block;}
+  .page-title{font-size:24px;margin:0 0 4px;}
+  .page-sub{color:var(--muted);font-size:13px;margin:0 0 28px;}
+
+  .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;}
+  .stat-card{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:18px 20px;}
+  .stat-card .label{font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:8px;}
+  .stat-card .value{font-size:22px;font-weight:600;}
+  .stat-card.credit .value{color:var(--credit);}
+  .stat-card.debit .value{color:var(--debit);}
+
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:4px;margin-bottom:24px;}
+  .panel-head{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;}
+  .panel-head h3{margin:0;font-size:15px;font-weight:600;font-family:'IBM Plex Sans';}
+  .panel-body{padding:20px;}
+
+  table{width:100%;border-collapse:collapse;}
+  thead th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);padding:0 20px 10px;font-weight:500;}
+  tbody td{padding:12px 20px;border-top:1px solid var(--line);font-size:13.5px;}
+  tbody tr:hover{background:var(--surface-2);}
+  td.num{text-align:right;}
+  .tick{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:8px;}
+  .tick.credit{background:var(--credit);}
+  .tick.debit{background:var(--debit);}
+  .row-actions{display:flex;gap:10px;}
+  .row-actions button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;font-family:'IBM Plex Sans';}
+  .row-actions button:hover{color:var(--gold);}
+
+  .form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;}
+  .form-grid .full{grid-column:1/-1;}
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;}
+  .btn.small{width:auto;padding:8px 16px;font-size:13px;}
+  .empty{color:var(--muted);font-size:13px;padding:24px 20px;text-align:center;}
+  .field select{width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:3px;color:var(--text);padding:10px 12px;font-size:14px;font-family:'IBM Plex Sans';}
+  .period-select{background:var(--surface-2);border:1px solid var(--line);border-radius:3px;color:var(--text);padding:7px 10px;font-size:13px;font-family:'IBM Plex Sans';}
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--surface-2);border:1px solid var(--gold);border-radius:4px;padding:12px 18px;font-size:13px;display:none;z-index:50;max-width:320px;}
+  .toast.err{border-color:var(--debit);}
+  .bar-wrap{display:flex;flex-direction:column;gap:10px;}
+  .bar-row{display:grid;grid-template-columns:110px 1fr 70px;align-items:center;gap:10px;font-size:12.5px;}
+  .bar-track{background:var(--surface-2);border-radius:2px;height:8px;overflow:hidden;}
+  .bar-fill{height:100%;background:var(--gold);}
+  .bar-fill.over{background:var(--debit);}
+  .insights-text{font-size:13.5px;line-height:1.7;color:var(--text);white-space:pre-wrap;}
+  .file-drop{border:1px dashed var(--line);border-radius:4px;padding:24px;text-align:center;color:var(--muted);font-size:13px;cursor:pointer;}
+  .file-drop:hover{border-color:var(--gold);color:var(--text);}
+  .badge{font-size:10px;text-transform:uppercase;letter-spacing:0.04em;padding:3px 8px;border-radius:2px;background:var(--surface-2);color:var(--muted);}
+  .alert-list{display:flex;flex-direction:column;gap:10px;}
+  .alert-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:3px;border:1px solid var(--line);background:var(--surface-2);}
+  .alert-item .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .alert-item.warning .dot{background:var(--gold);}
+  .alert-item.exceeded .dot{background:var(--debit);}
+  .alert-item .body{flex:1;font-size:13px;}
+  .alert-item .cat{font-weight:600;}
+  .alert-item .detail{color:var(--muted);font-size:12px;margin-top:2px;}
+  .alert-item .pct{font-family:'IBM Plex Mono';font-size:13px;font-weight:600;}
+  .alert-item.warning .pct{color:var(--gold);}
+  .alert-item.exceeded .pct{color:var(--debit);}
+  @media (max-width: 800px){
+    .shell{grid-template-columns:1fr;}
+    .sidebar{display:none;}
+    .stat-row{grid-template-columns:repeat(2,1fr);}
+    .form-grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= AUTH SCREEN ================= -->
+<div id="auth-screen">
+  <div class="ledger-card">
+    <div class="brand"><span class="mark">§</span><span class="name">Ledger</span></div>
+    <p class="tagline">A quiet place to keep your accounts straight.</p>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="login" onclick="switchAuthTab('login')">Sign in</button>
+      <button class="tab-btn" data-tab="register" onclick="switchAuthTab('register')">Create account</button>
+    </div>
+
+    <form id="login-form" onsubmit="return handleLogin(event)">
+      <div class="field"><label>Email</label><input type="email" id="login-email" required /></div>
+      <div class="field"><label>Password</label><input type="password" id="login-password" required /></div>
+      <button class="btn" type="submit">Sign in</button>
+      <p class="err" id="login-err"></p>
+    </form>
+
+    <form id="register-form" style="display:none" onsubmit="return handleRegister(event)">
+      <div class="field"><label>Username</label><input type="text" id="reg-username" required /></div>
+      <div class="field"><label>Email</label><input type="email" id="reg-email" required /></div>
+      <div class="field"><label>Password</label><input type="password" id="reg-password" required /></div>
+      <button class="btn" type="submit">Create account</button>
+      <p class="err" id="register-err"></p>
+    </form>
+
+    <div class="api-base">
+      <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:6px;">API base URL</label>
+      <input type="text" id="api-base-input" value="http://localhost:8000" />
+    </div>
+  </div>
+</div>
+
+<!-- ================= APP SHELL ================= -->
+<div id="app">
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand"><span class="mark">§</span><span class="name">Ledger</span></div>
+      <div class="nav-item active" data-page="dashboard" onclick="switchPage('dashboard')"><span class="num">01</span> Dashboard</div>
+      <div class="nav-item" data-page="transactions" onclick="switchPage('transactions')"><span class="num">02</span> Transactions</div>
+      <div class="nav-item" data-page="budgets" onclick="switchPage('budgets')"><span class="num">03</span> Budgets</div>
+      <div class="nav-item" data-page="upload" onclick="switchPage('upload')"><span class="num">04</span> Import</div>
+      <div class="nav-item" data-page="insights" onclick="switchPage('insights')"><span class="num">05</span> Insights</div>
+      <div class="sidebar-foot">
+        <div id="user-chip" style="font-size:12px;color:var(--muted);margin-bottom:6px;"></div>
+        <button onclick="handleLogout()">Sign out →</button>
+      </div>
+    </aside>
+
+    <main>
+      <!-- DASHBOARD -->
+      <section class="page active" id="page-dashboard">
+        <h1 class="page-title display">Dashboard</h1>
+        <p class="page-sub">Where things stand right now.</p>
+
+        <div class="toolbar" style="align-items:center;">
+          <select id="period-month" class="period-select" onchange="onPeriodChange()"></select>
+          <select id="period-year" class="period-select" onchange="onPeriodChange()"></select>
+          <button class="btn small ghost" onclick="jumpToCurrentMonth()">This month</button>
+          <span id="period-label" style="color:var(--muted);font-size:12.5px;margin-left:4px;"></span>
+        </div>
+
+        <div class="stat-row">
+          <div class="stat-card"><div class="label">Balance</div><div class="value amt" id="stat-balance">—</div></div>
+          <div class="stat-card credit"><div class="label">Total credit</div><div class="value amt" id="stat-credit">—</div></div>
+          <div class="stat-card debit"><div class="label">Total debit</div><div class="value amt" id="stat-debit">—</div></div>
+          <div class="stat-card"><div class="label">Net this month</div><div class="value amt" id="stat-net">—</div></div>
+        </div>
+
+        <div class="panel" id="dash-alerts-panel" style="display:none;">
+          <div class="panel-head"><h3>Budget alerts</h3></div>
+          <div class="panel-body"><div class="alert-list" id="dash-alerts-body"></div></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h3>Recent entries</h3><span class="badge">Last 10</span></div>
+          <div class="panel-body" style="padding:0;">
+            <table><thead><tr><th>Date</th><th>Narration</th><th>Category</th><th style="text-align:right">Amount</th></tr></thead>
+            <tbody id="recent-txn-body"><tr><td colspan="4" class="empty">Nothing recorded yet.</td></tr></tbody></table>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h3>Category breakdown, this month</h3></div>
+          <div class="panel-body"><div class="bar-wrap" id="category-bars"><p class="empty">No spending recorded for this period.</p></div></div>
+        </div>
+      </section>
+
+      <!-- TRANSACTIONS -->
+      <section class="page" id="page-transactions">
+        <h1 class="page-title display">Transactions</h1>
+        <p class="page-sub">Every entry, debit and credit, in one line.</p>
+
+        <div class="toolbar">
+          <button class="btn small" onclick="openTxnForm()">+ New entry</button>
+          <button class="btn small ghost" onclick="loadTransactions()">Refresh</button>
+        </div>
+
+        <div class="panel" id="txn-form-panel" style="display:none;">
+          <div class="panel-head"><h3 id="txn-form-title">New entry</h3><button class="row-actions" style="background:none;border:none;color:var(--muted);cursor:pointer;" onclick="closeTxnForm()">Close</button></div>
+          <div class="panel-body">
+            <form onsubmit="return submitTxnForm(event)">
+              <input type="hidden" id="txn-id" />
+              <div class="form-grid">
+                <div class="field"><label>Type</label>
+                  <select id="txn-type"><option value="DEBIT">Debit</option><option value="CREDIT">Credit</option></select>
+                </div>
+                <div class="field"><label>Mode</label><input type="text" id="txn-mode" placeholder="UPI, card, cash…" required /></div>
+                <div class="field"><label>Amount</label><input type="number" step="0.01" id="txn-amount" required /></div>
+                <div class="field"><label>Date</label><input type="date" id="txn-date" required /></div>
+                <div class="field full"><label>Narration</label><input type="text" id="txn-narration" required /></div>
+              </div>
+              <button class="btn" type="submit" style="margin-top:6px;">Save entry</button>
+              <p class="err" id="txn-form-err"></p>
+            </form>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-body" style="padding:0;">
+            <table><thead><tr><th>Date</th><th>Narration</th><th>Mode</th><th>Category</th><th style="text-align:right">Amount</th><th></th></tr></thead>
+            <tbody id="txn-body"><tr><td colspan="6" class="empty">No transactions yet — add your first entry.</td></tr></tbody></table>
+          </div>
+        </div>
+        <div class="toolbar" style="margin-top:12px;">
+          <button class="btn small ghost" onclick="pageTxns(-1)">← Newer</button>
+          <button class="btn small ghost" onclick="pageTxns(1)">Older →</button>
+        </div>
+      </section>
+
+      <!-- BUDGETS -->
+      <section class="page" id="page-budgets">
+        <h1 class="page-title display">Budgets</h1>
+        <p class="page-sub">A limit set against each category, and how close you are to it.</p>
+
+        <div class="toolbar"><button class="btn small" onclick="openBudgetForm()">+ Set a budget</button></div>
+
+        <div class="panel" id="budget-form-panel" style="display:none;">
+          <div class="panel-head"><h3>New budget</h3><button style="background:none;border:none;color:var(--muted);cursor:pointer;" onclick="closeBudgetForm()">Close</button></div>
+          <div class="panel-body">
+            <form onsubmit="return submitBudgetForm(event)">
+              <div class="form-grid">
+                <div class="field"><label>Category</label><input type="text" id="budget-category" required /></div>
+                <div class="field"><label>Monthly limit</label><input type="number" step="0.01" id="budget-limit" required /></div>
+              </div>
+              <button class="btn" type="submit" style="margin-top:6px;">Save budget</button>
+              <p class="err" id="budget-form-err"></p>
+            </form>
+          </div>
+        </div>
+
+        <div class="panel" id="budget-alerts-panel" style="display:none;">
+          <div class="panel-head"><h3>Alerts</h3></div>
+          <div class="panel-body"><div class="alert-list" id="budget-alerts-body"></div></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h3>Status this month</h3></div>
+          <div class="panel-body" style="padding:0;">
+            <table><thead><tr><th>Category</th><th style="text-align:right">Limit</th><th></th></tr></thead>
+            <tbody id="budget-body"><tr><td colspan="3" class="empty">No budgets set yet.</td></tr></tbody></table>
+          </div>
+        </div>
+      </section>
+
+      <!-- IMPORT -->
+      <section class="page" id="page-upload">
+        <h1 class="page-title display">Import</h1>
+        <p class="page-sub">Bring in a bank statement — CSV or PDF — and let it sort itself.</p>
+
+        <div class="panel">
+          <div class="panel-head"><h3>Upload CSV</h3></div>
+          <div class="panel-body">
+            <div class="file-drop" onclick="document.getElementById('csv-input').click()">Click to choose a .csv file</div>
+            <input type="file" id="csv-input" accept=".csv" style="display:none" onchange="handleUpload(this,'csv')" />
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>Upload PDF statement</h3></div>
+          <div class="panel-body">
+            <div class="file-drop" onclick="document.getElementById('pdf-input').click()">Click to choose a .pdf file</div>
+            <input type="file" id="pdf-input" accept=".pdf" style="display:none" onchange="handleUpload(this,'pdf')" />
+          </div>
+        </div>
+        <p class="page-sub" id="upload-status"></p>
+      </section>
+
+      <!-- INSIGHTS -->
+      <section class="page" id="page-insights">
+        <h1 class="page-title display">Insights</h1>
+        <p class="page-sub">A generated read of your month, from the numbers themselves.</p>
+        <div class="panel">
+          <div class="panel-head"><h3>This month, in words</h3><button class="btn small ghost" onclick="loadInsights()">Regenerate</button></div>
+          <div class="panel-body"><ul class="insights-text" id="insights-text" style="margin:0;padding-left:20px;">Loading…</ul></div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------------- State & helpers ---------------- */
+let API_BASE = 'http://localhost:8000';
+let ACCESS_TOKEN = null, REFRESH_TOKEN = null;
+let txnOffset = 0;
+const TXN_LIMIT = 10;
+
+function toast(msg, isErr){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (isErr ? ' err' : '');
+  t.style.display = 'block';
+  clearTimeout(t._h);
+  t._h = setTimeout(()=> t.style.display='none', 3500);
+}
+
+async function api(path, opts={}){
+  opts.headers = opts.headers || {};
+  if(ACCESS_TOKEN) opts.headers['Authorization'] = 'Bearer ' + ACCESS_TOKEN;
+  let res = await fetch(API_BASE + path, opts);
+  if(res.status === 401 && REFRESH_TOKEN){
+    const r = await fetch(API_BASE + '/auth/refresh', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({refresh_tokens: REFRESH_TOKEN})
+    });
+    if(r.ok){
+      const data = await r.json();
+      ACCESS_TOKEN = data.access_token;
+      opts.headers['Authorization'] = 'Bearer ' + ACCESS_TOKEN;
+      res = await fetch(API_BASE + path, opts);
+    }
+  }
+  return res;
+}
+
+function fmt(n){
+  const v = Number(n||0);
+  return (v<0?'-':'') + '₹' + Math.abs(v).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+function formatErrDetail(detail){
+  if(!detail) return '';
+  if(typeof detail === 'string') return detail;
+  if(Array.isArray(detail)){
+    return detail.map(d => {
+      if(typeof d === 'string') return d;
+      const field = Array.isArray(d.loc) ? d.loc[d.loc.length-1] : '';
+      return (field ? field + ': ' : '') + (d.msg || JSON.stringify(d));
+    }).join(' · ');
+  }
+  return JSON.stringify(detail);
+}
+
+/* ---------------- Auth ---------------- */
+function switchAuthTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  document.getElementById('login-form').style.display = tab==='login' ? 'block':'none';
+  document.getElementById('register-form').style.display = tab==='register' ? 'block':'none';
+}
+
+async function handleLogin(e){
+  e.preventDefault();
+  API_BASE = document.getElementById('api-base-input').value.replace(/\/$/,'');
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-err');
+  errEl.textContent = '';
+  try{
+    const body = new URLSearchParams();
+    body.set('username', email);
+    body.set('password', password);
+    const res = await fetch(API_BASE + '/auth/login/', {method:'POST', body});
+    if(!res.ok){
+      const d = await res.json().catch(()=>({detail:'Invalid email or password'}));
+      console.error('Login failed', res.status, d);
+      errEl.textContent = formatErrDetail(d.detail) || ('Sign in failed (status ' + res.status + ').');
+      return false;
+    }
+    const data = await res.json();
+    ACCESS_TOKEN = data.access_token;
+    REFRESH_TOKEN = data.refresh_token;
+    document.getElementById('user-chip').textContent = email;
+    enterApp();
+  }catch(err){
+    errEl.textContent = 'Could not reach the API at ' + API_BASE + '. Check the URL and that the server is running.';
+  }
+  return false;
+}
+
+async function handleRegister(e){
+  e.preventDefault();
+  API_BASE = document.getElementById('api-base-input').value.replace(/\/$/,'');
+  const username = document.getElementById('reg-username').value;
+  const email = document.getElementById('reg-email').value;
+  const password = document.getElementById('reg-password').value;
+  const errEl = document.getElementById('register-err');
+  errEl.textContent = '';
+  try{
+    const res = await fetch(API_BASE + '/auth/register', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({username, email, password})
+    });
+    if(!res.ok){
+      const d = await res.json().catch(()=>({detail:'Registration failed'}));
+      console.error('Register failed', res.status, d);
+      errEl.textContent = formatErrDetail(d.detail) || ('Registration failed (status ' + res.status + ').');
+      return false;
+    }
+    toast('Account created — sign in below.');
+    switchAuthTab('login');
+    document.getElementById('login-email').value = email;
+    document.getElementById('login-password').value = '';
+  }catch(err){
+    console.error('Register error', err);
+    errEl.textContent = 'Could not reach the API at ' + API_BASE + '. Open the browser console (F12) for details.';
+  }
+  return false;
+}
+
+function handleLogout(){
+  ACCESS_TOKEN = null; REFRESH_TOKEN = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+}
+
+function enterApp(){
+  cachedPeriod = null;
+  selectedMonth = null; selectedYear = null;
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  switchPage('dashboard');
+  loadDashboard();
+}
+
+/* ---------------- Nav ---------------- */
+function switchPage(page){
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.page===page));
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id==='page-'+page));
+  if(page==='dashboard') loadDashboard();
+  if(page==='transactions') loadTransactions();
+  if(page==='budgets') loadBudgets();
+  if(page==='insights') loadInsights();
+}
+
+let cachedPeriod = null;
+let selectedMonth = null, selectedYear = null;
+
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+async function getEffectivePeriod(){
+  if(cachedPeriod) return cachedPeriod;
+  const now = new Date();
+  let month = now.getMonth()+1, year = now.getFullYear();
+  try{
+    const res = await api('/analytics/recent_transactions?limit=1');
+    if(res.ok){
+      const list = await res.json();
+      const items = Array.isArray(list) ? list : (list.transactions||list.items||[]);
+      if(items.length){
+        const d = new Date(items[0].valueDate || items[0].date);
+        if(!isNaN(d)){ month = d.getMonth()+1; year = d.getFullYear(); }
+      }
+    }
+  }catch(e){ /* fall back to current month */ }
+  cachedPeriod = {month, year};
+  return cachedPeriod;
+}
+
+function populatePeriodSelectors(month, year){
+  const monthSel = document.getElementById('period-month');
+  const yearSel = document.getElementById('period-year');
+  if(!monthSel.options.length){
+    monthSel.innerHTML = MONTH_NAMES.map((name, i) => `<option value="${i+1}">${name}</option>`).join('');
+  }
+  if(!yearSel.options.length){
+    const nowYear = new Date().getFullYear();
+    const years = [];
+    for(let y = nowYear + 1; y >= nowYear - 5; y--) years.push(y);
+    if(!years.includes(year)) years.push(year);
+    years.sort((a,b)=>b-a);
+    yearSel.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+  }
+  monthSel.value = month;
+  yearSel.value = year;
+  updatePeriodLabel();
+}
+
+function updatePeriodLabel(){
+  const now = new Date();
+  const isCurrent = selectedMonth === now.getMonth()+1 && selectedYear === now.getFullYear();
+  document.getElementById('period-label').textContent = isCurrent ? '' : '(viewing a past period)';
+}
+
+function onPeriodChange(){
+  selectedMonth = parseInt(document.getElementById('period-month').value, 10);
+  selectedYear = parseInt(document.getElementById('period-year').value, 10);
+  updatePeriodLabel();
+  loadDashboard();
+}
+
+function jumpToCurrentMonth(){
+  const now = new Date();
+  selectedMonth = now.getMonth()+1;
+  selectedYear = now.getFullYear();
+  populatePeriodSelectors(selectedMonth, selectedYear);
+  loadDashboard();
+}
+
+/* ---------------- Dashboard ---------------- */
+async function loadDashboard(){
+  if(selectedMonth === null || selectedYear === null){
+    const eff = await getEffectivePeriod();
+    selectedMonth = eff.month;
+    selectedYear = eff.year;
+  }
+  const month = selectedMonth, year = selectedYear;
+  populatePeriodSelectors(month, year);
+  try{
+    const [balRes, credRes, debRes, netRes, recentRes] = await Promise.all([
+      api('/analytics/balance/'),
+      api('/analytics/total_credit/'),
+      api('/analytics/total_debit/'),
+      api(`/analytics/monthly_net/?month=${month}&year=${year}`),
+      api('/analytics/recent_transactions?limit=10')
+    ]);
+    if(balRes.ok) setStat('stat-balance', await balRes.json());
+    if(credRes.ok) setStat('stat-credit', await credRes.json());
+    if(debRes.ok) setStat('stat-debit', await debRes.json());
+    if(netRes.ok){
+      const netData = await netRes.json();
+      const netVal = netData.total_monthly_net ?? netData.balance ?? netData.net ?? extractNumber(netData);
+      document.getElementById('stat-net').textContent = fmt(netVal);
+    }
+    if(recentRes.ok) renderRecent(await recentRes.json());
+  }catch(e){ toast('Could not load dashboard data.', true); }
+
+  try{
+    const catRes = await api(`/analytics/category-breakdown?month=${month}&year=${year}`);
+    if(catRes.ok) renderCategoryBars(await catRes.json());
+  }catch(e){ /* endpoint may be unavailable */ }
+
+  try{
+    const statusRes = await api(`/budget/status?month=${month}&year=${year}`);
+    if(statusRes.ok){
+      renderBudgetAlerts('dash-alerts-panel', 'dash-alerts-body', await statusRes.json());
+    } else {
+      document.getElementById('dash-alerts-panel').style.display = 'none';
+    }
+  }catch(e){ document.getElementById('dash-alerts-panel').style.display = 'none'; }
+}
+
+function extractNumber(d){
+  if(typeof d === 'number') return d;
+  if(d && typeof d === 'object'){
+    const keys = Object.keys(d);
+    for(const k of keys){ if(typeof d[k]==='number') return d[k]; }
+  }
+  return 0;
+}
+function setStat(id, data){
+  document.getElementById(id).textContent = fmt(extractNumber(data));
+}
+
+function renderRecent(list){
+  const body = document.getElementById('recent-txn-body');
+  const items = Array.isArray(list) ? list : (list.transactions || list.items || []);
+  if(!items.length){ body.innerHTML = '<tr><td colspan="4" class="empty">Nothing recorded yet.</td></tr>'; return; }
+  body.innerHTML = items.map(t => `
+    <tr>
+      <td>${t.valueDate || t.date || ''}</td>
+      <td><span class="tick ${t.type==='CREDIT'?'credit':'debit'}"></span>${t.narration||''}</td>
+      <td>${t.category||'—'}</td>
+      <td class="num amt" style="color:${t.type==='CREDIT'?'var(--credit)':'var(--debit)'}">${t.type==='CREDIT'?'+':'-'}${fmt(t.amount)}</td>
+    </tr>`).join('');
+}
+
+function renderBudgetAlerts(panelId, bodyId, statusList){
+  const panel = document.getElementById(panelId);
+  const body = document.getElementById(bodyId);
+  if(!Array.isArray(statusList)){ panel.style.display = 'none'; return; }
+  const flagged = statusList.filter(s => s.status === 'WARNING' || s.status === 'EXCEEDED');
+  if(!flagged.length){ panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  body.innerHTML = flagged.map(s => {
+    const cls = s.status === 'EXCEEDED' ? 'exceeded' : 'warning';
+    const msg = s.status === 'EXCEEDED'
+      ? `Over budget by ${fmt(Math.abs(s.remaining))}`
+      : `${fmt(s.remaining)} left of ${fmt(s.monthly_limit)}`;
+    return `
+      <div class="alert-item ${cls}">
+        <span class="dot"></span>
+        <div class="body">
+          <div class="cat">${s.category}</div>
+          <div class="detail">${msg}</div>
+        </div>
+        <span class="pct">${s.utilization}%</span>
+      </div>`;
+  }).join('');
+}
+
+function renderCategoryBars(data){
+  const wrap = document.getElementById('category-bars');
+  const entries = Array.isArray(data) ? data.map(d=>[d.category, d.amount]) : Object.entries(data||{});
+  if(!entries.length){ wrap.innerHTML = '<p class="empty">No spending recorded for this period.</p>'; return; }
+  const max = Math.max(...entries.map(([,v])=>Number(v)||0), 1);
+  wrap.innerHTML = entries.map(([cat, amt])=>`
+    <div class="bar-row">
+      <span>${cat}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.min(100,(Number(amt)/max)*100)}%"></div></div>
+      <span class="amt" style="text-align:right">${fmt(amt)}</span>
+    </div>`).join('');
+}
+
+/* ---------------- Transactions ---------------- */
+async function loadTransactions(){
+  try{
+    const res = await api(`/transactions/get_Transactions?limit=${TXN_LIMIT}&offset=${txnOffset}`);
+    if(!res.ok){ toast('Could not load transactions.', true); return; }
+    const list = await res.json();
+    renderTxns(Array.isArray(list) ? list : (list.transactions||list.items||[]));
+  }catch(e){ toast('Could not reach the API.', true); }
+}
+function pageTxns(dir){
+  txnOffset = Math.max(0, txnOffset + dir*TXN_LIMIT);
+  loadTransactions();
+}
+function renderTxns(items){
+  const body = document.getElementById('txn-body');
+  if(!items.length){ body.innerHTML = '<tr><td colspan="6" class="empty">No transactions yet — add your first entry.</td></tr>'; return; }
+  body.innerHTML = items.map(t=>`
+    <tr>
+      <td>${t.valueDate||''}</td>
+      <td><span class="tick ${t.type==='CREDIT'?'credit':'debit'}"></span>${t.narration||''}</td>
+      <td>${t.mode||''}</td>
+      <td>${t.category||'—'}</td>
+      <td class="num amt" style="color:${t.type==='CREDIT'?'var(--credit)':'var(--debit)'}">${t.type==='CREDIT'?'+':'-'}${fmt(t.amount)}</td>
+      <td class="row-actions">
+        <button onclick='editTxn(${JSON.stringify(t).replace(/'/g,"&#39;")})'>Edit</button>
+        <button onclick="deleteTxn('${t.id}')">Delete</button>
+      </td>
+    </tr>`).join('');
+}
+function openTxnForm(){
+  document.getElementById('txn-form-title').textContent = 'New entry';
+  document.getElementById('txn-id').value = '';
+  document.getElementById('txn-type').value = 'DEBIT';
+  document.getElementById('txn-mode').value = '';
+  document.getElementById('txn-amount').value = '';
+  document.getElementById('txn-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('txn-narration').value = '';
+  document.getElementById('txn-form-err').textContent = '';
+  document.getElementById('txn-form-panel').style.display = 'block';
+}
+function closeTxnForm(){ document.getElementById('txn-form-panel').style.display = 'none'; }
+function editTxn(t){
+  document.getElementById('txn-form-title').textContent = 'Edit entry';
+  document.getElementById('txn-id').value = t.id;
+  document.getElementById('txn-type').value = t.type;
+  document.getElementById('txn-mode').value = t.mode;
+  document.getElementById('txn-amount').value = t.amount;
+  document.getElementById('txn-date').value = t.valueDate;
+  document.getElementById('txn-narration').value = t.narration;
+  document.getElementById('txn-form-err').textContent = '';
+  document.getElementById('txn-form-panel').style.display = 'block';
+}
+async function submitTxnForm(e){
+  e.preventDefault();
+  const id = document.getElementById('txn-id').value;
+  const payload = {
+    type: document.getElementById('txn-type').value,
+    mode: document.getElementById('txn-mode').value,
+    amount: parseFloat(document.getElementById('txn-amount').value),
+    valueDate: document.getElementById('txn-date').value,
+    narration: document.getElementById('txn-narration').value
+  };
+  const errEl = document.getElementById('txn-form-err');
+  try{
+    let res;
+    if(id){
+      res = await api(`/transactions/update_transaction/${id}`, {
+        method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+      });
+    } else {
+      res = await api('/transactions/create_transaction', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+      });
+    }
+    if(!res.ok){
+      const d = await res.json().catch(()=>({detail:'Could not save this entry.'}));
+      errEl.textContent = formatErrDetail(d.detail) || 'Check the fields and try again.';
+      return false;
+    }
+    closeTxnForm();
+    cachedPeriod = null;
+    toast(id ? 'Entry updated.' : 'Entry added.');
+    loadTransactions(); loadDashboard();
+  }catch(e){ errEl.textContent = 'Could not reach the API.'; }
+  return false;
+}
+async function deleteTxn(id){
+  if(!confirm('Delete this entry? This cannot be undone.')) return;
+  try{
+    const res = await api(`/transactions/delete_transaction/${id}`, {method:'DELETE'});
+    if(!res.ok){ toast('Could not delete this entry.', true); return; }
+    toast('Entry deleted.');
+    cachedPeriod = null;
+    loadTransactions(); loadDashboard();
+  }catch(e){ toast('Could not reach the API.', true); }
+}
+
+/* ---------------- Budgets ---------------- */
+async function loadBudgets(){
+  try{
+    if(selectedMonth === null || selectedYear === null){
+      const eff = await getEffectivePeriod();
+      selectedMonth = eff.month; selectedYear = eff.year;
+    }
+    const month = selectedMonth, year = selectedYear;
+    const [budRes, statusRes] = await Promise.all([
+      api('/budget/get_budget'),
+      api(`/budget/status?month=${month}&year=${year}`)
+    ]);
+    const budgets = budRes.ok ? await budRes.json() : [];
+    const status = statusRes.ok ? await statusRes.json() : null;
+    renderBudgets(Array.isArray(budgets)?budgets:(budgets.budgets||[]), status);
+    renderBudgetAlerts('budget-alerts-panel', 'budget-alerts-body', status);
+  }catch(e){
+    toast('Could not load budgets.', true);
+    document.getElementById('budget-alerts-panel').style.display = 'none';
+  }
+}
+function renderBudgets(items, status){
+  const body = document.getElementById('budget-body');
+  if(!items.length){ body.innerHTML = '<tr><td colspan="3" class="empty">No budgets set yet.</td></tr>'; return; }
+  body.innerHTML = items.map(b=>`
+    <tr>
+      <td>${b.category}</td>
+      <td class="num amt">${fmt(b.monthly_limit)}</td>
+      <td class="row-actions">
+        <button onclick="deleteBudget('${b.category}')">Delete</button>
+      </td>
+    </tr>`).join('');
+}
+function openBudgetForm(){
+  document.getElementById('budget-category').value='';
+  document.getElementById('budget-limit').value='';
+  document.getElementById('budget-form-err').textContent='';
+  document.getElementById('budget-form-panel').style.display='block';
+}
+function closeBudgetForm(){ document.getElementById('budget-form-panel').style.display='none'; }
+async function submitBudgetForm(e){
+  e.preventDefault();
+  const payload = {
+    category: document.getElementById('budget-category').value,
+    monthly_limit: parseFloat(document.getElementById('budget-limit').value)
+  };
+  const errEl = document.getElementById('budget-form-err');
+  try{
+    const res = await api('/budget/add_budget', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+    if(!res.ok){
+      const d = await res.json().catch(()=>({detail:'Could not save this budget.'}));
+      errEl.textContent = formatErrDetail(d.detail) || 'Check the fields and try again.';
+      return false;
+    }
+    closeBudgetForm(); toast('Budget saved.'); loadBudgets();
+  }catch(e){ errEl.textContent = 'Could not reach the API.'; }
+  return false;
+}
+async function deleteBudget(category){
+  if(!confirm(`Delete the budget for "${category}"?`)) return;
+  try{
+    const res = await api(`/budget/delete_budget/${encodeURIComponent(category)}`, {method:'DELETE'});
+    if(!res.ok){ toast('Could not delete this budget.', true); return; }
+    toast('Budget deleted.'); loadBudgets();
+  }catch(e){ toast('Could not reach the API.', true); }
+}
+
+/* ---------------- Upload ---------------- */
+async function handleUpload(input, kind){
+  const file = input.files[0];
+  if(!file) return;
+  const statusEl = document.getElementById('upload-status');
+  statusEl.textContent = 'Uploading ' + file.name + '…';
+  const fd = new FormData();
+  fd.append('file', file);
+  try{
+    const res = await api(`/upload/upload_${kind}`, {method:'POST', body: fd});
+    if(!res.ok){
+      const d = await res.json().catch(()=>({detail:'Upload failed.'}));
+      statusEl.textContent = formatErrDetail(d.detail) || 'Upload failed.';
+      return;
+    }
+    statusEl.textContent = file.name + ' imported successfully.';
+    toast('Statement imported.');
+    cachedPeriod = null;
+    loadDashboard();
+  }catch(e){ statusEl.textContent = 'Could not reach the API.'; }
+  input.value = '';
+}
+
+/* ---------------- Insights ---------------- */
+async function loadInsights(){
+  const el = document.getElementById('insights-text');
+  el.innerHTML = '<li>Reading through this month\'s entries…</li>';
+  try{
+    if(selectedMonth === null || selectedYear === null){
+      const eff = await getEffectivePeriod();
+      selectedMonth = eff.month; selectedYear = eff.year;
+    }
+    const month = selectedMonth, year = selectedYear;
+    const res = await api(`/analytics/insights?month=${month}&year=${year}`);
+    if(!res.ok){ el.innerHTML = '<li>Could not generate insights right now.</li>'; return; }
+    const data = await res.json();
+    const list = data.insights || data.inights || (typeof data === 'string' ? [data] : null);
+    if(Array.isArray(list) && list.length){
+      el.innerHTML = list.map(line => `<li style="margin-bottom:8px;">${line}</li>`).join('');
+    } else {
+      el.innerHTML = `<li>${data.message || 'No insights available for this period.'}</li>`;
+    }
+  }catch(e){ el.innerHTML = '<li>Could not reach the API.</li>'; }
+}
+</script>
+</body>
+</html>

@@ -49,7 +49,10 @@ def login(form_data: OAuth2PasswordRequestForm,
     
     return {
         "access_token": token, "token_type": "bearer",
-        "refresh_token": refresh_token
+        "refresh_token": refresh_token,
+        # Frontend (and RefreshTokenSchema) expect the plural form.
+        # Returning both keeps existing clients working.
+        "refresh_tokens": refresh_token,
     }
 
 
@@ -70,11 +73,7 @@ def refresh_token(data: RefreshTokenSchema, db: Session):
         "token_type": "bearer"
     }
 
-def logout(user_id=UUID,
-           db = Session
-           ):
-    
-    current_user = db.query(User).filter(User.id==user_id).first()
+def logout(current_user, db: Session):
     current_user.refresh_tokens = None
     db.commit()
     return {"message": "Logged out successfully"}

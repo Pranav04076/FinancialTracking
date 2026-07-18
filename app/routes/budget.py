@@ -9,6 +9,9 @@ from app.dependencies import get_current_user
 from app.models import User
 from app.schemas import BudgetCreate, BudgetUpdate, TransactionType
 from app.services.route_services.budget_service import add_budget, get_budget, update_budget, delete_budget, get_budget_status
+from app.schemas import BudgetResponse
+from typing import List
+
 
 router = APIRouter(prefix = "/budget", tags = ["budgets"])
 
@@ -20,7 +23,7 @@ def add_budget_route(data: BudgetCreate,
     return add_budget(current_user.id, data, db)
 
 
-@router.get("/get_budget")
+@router.get("/get_budget", response_model=List[BudgetResponse])
 def get_budget_route(db: Session = Depends(get_db),
                current_user: User = Depends(get_current_user)):
     return get_budget(db, current_user.id)
@@ -47,7 +50,7 @@ def get_budget_status_route(month: int = datetime.now().month,
                       db: Session = Depends(get_db),
                       current_user: User = Depends(get_current_user)):
     
-    return get_budget_status(current_user, db, month, year)
+    return get_budget_status(current_user.id, db, month, year)
 
     
 

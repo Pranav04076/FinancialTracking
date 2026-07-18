@@ -54,7 +54,7 @@ def get_transactions(
                     offset: int = 0,
                     ):
     
-    transactions = (db.query(Transaction).filter(Transaction.user_id==user_id).offset(offset).limit(limit).all())
+    transactions = (db.query(Transaction).filter(Transaction.user_id==user_id).order_by(Transaction.valueDate.desc()).offset(offset).limit(limit).all())
     if transactions is None:
         logger.warning(f"Transactions not found for user {user_id}")
         raise HTTPException(status_code=401, detail = "Transaction not found")
@@ -152,7 +152,7 @@ def delete_transaction(transaction_id: UUID,
                        db: Session
                        ):
     transaction = (db.query(Transaction).filter(Transaction.id == transaction_id,
-                                                Transaction.user_id == UUID)).first()
+                                                Transaction.user_id == user_id)).first()
     
     if transaction is None:
         raise HTTPException(status_code=401, detail="Transaction not found")

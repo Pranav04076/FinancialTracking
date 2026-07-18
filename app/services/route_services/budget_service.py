@@ -1,26 +1,22 @@
+
 from uuid import UUID
 from datetime import datetime
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract
 from app.schemas import BudgetCreate, BudgetUpdate, TransactionType
 from app.models import Budget, Transaction
 
-def add_budget(user_id: UUID,
-            data: BudgetCreate,
-            db: Session,
-               ):
-    
-    new_budget = Budget(
-        user_id = user_id,
-        category = data.category.strip().title(),
-        monthly_limit = data.monthly_limit
-    )
-
+def add_budget(user_id, data, db):
+    new_budget = Budget(user_id=user_id, category=data.category, monthly_limit=data.monthly_limit)
     db.add(new_budget)
-    db.commit()
-    db.refresh(new_budget)
-
+    try:
+        db.commit()
+        db.refresh(new_budget)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=f"A budget for '{data.category}' already exists.")
     return new_budget
 
 def get_budget(db: Session,
@@ -87,7 +83,7 @@ def get_budget_status(user_id: UUID,
     result = []
         
     for budget in budgets:
-        spent = db.query(func.sum(Transaction.amount)).filter(Transaction.user_id==user_id.id,
+        spent = db.query(func.sum(Transaction.amount)).filter(Transaction.user_id==user_id,
                                              Transaction.category==budget.category,
                                              Transaction.type == TransactionType.DEBIT,
                                              extract("month", Transaction.valueDate)==month,

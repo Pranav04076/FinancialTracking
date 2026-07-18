@@ -19,7 +19,7 @@ def clean_text(text):
 
 def predict_category(narration: str):
     text = clean_text(narration)
-    probabilities = model.predict_proba([narration])[0]
+    probabilities = model.predict_proba([text])[0]
     best_index = probabilities.argmax()
 
     category = model.classes_[best_index]
@@ -28,5 +28,4 @@ def predict_category(narration: str):
     if confidence < 0.1:
         category = "Other"
 
-    return {"category": category,
-            "confidence": confidence}
+    return {"category": category, "confidence": confidence}

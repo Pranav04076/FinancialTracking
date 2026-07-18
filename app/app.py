@@ -56,11 +56,7 @@ app = FastAPI(lifespan=lifespan, redirect_slashes=False)
 # When you get your real Vercel domain, add it to allow_origins below.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://financial-tracking-lzckwric8-pranav04076s-projects.vercel.app/",
-        "https://financetracker-gj4l.onrender.com"
-    ],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

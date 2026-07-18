@@ -1,4 +1,4 @@
-# 💰 Financial Tracking System
+# 💰 Financial Tracking System (https://financial-tracking-njm9zucvs-pranav04076s-projects.vercel.app/)
 
 A backend REST API for personal finance management. It ingests bank statements (CSV / PDF), auto-categorizes transactions with a machine-learning model, and exposes budgeting, analytics, and AI-generated insights — all behind JWT-secured endpoints.
 

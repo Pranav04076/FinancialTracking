@@ -163,7 +163,7 @@
 
     <div class="api-base">
       <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:6px;">API base URL</label>
-      <input type="text" id="api-base-input" value="http://localhost:8000" />
+      <input type="url" id="api-base-input" value="https://financetracker-gj4l.onrender.com" autocomplete="url" />
     </div>
   </div>
 </div>
@@ -339,9 +339,16 @@
 
 <script>
 /* ---------------- State & helpers ---------------- */
-let API_BASE = 'http://localhost:8000';
+// Use the deployed API when this page is hosted, while preserving the local
+// server as the default for local development.
+const DEFAULT_API_BASE = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+  ? 'http://localhost:8000'
+  : 'https://financetracker-gj4l.onrender.com';
+let API_BASE = DEFAULT_API_BASE;
 let ACCESS_TOKEN = null, REFRESH_TOKEN = null;
 let txnOffset = 0;
+
+document.getElementById('api-base-input').value = DEFAULT_API_BASE;
 const TXN_LIMIT = 10;
 
 function toast(msg, isErr){

@@ -102,7 +102,6 @@
   .btn.small{width:auto;padding:8px 16px;font-size:13px;}
   .empty{color:var(--muted);font-size:13px;padding:24px 20px;text-align:center;}
   .field select{width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:3px;color:var(--text);padding:10px 12px;font-size:14px;font-family:'IBM Plex Sans';}
-  .period-select{background:var(--surface-2);border:1px solid var(--line);border-radius:3px;color:var(--text);padding:7px 10px;font-size:13px;font-family:'IBM Plex Sans';}
   .toast{position:fixed;bottom:24px;right:24px;background:var(--surface-2);border:1px solid var(--gold);border-radius:4px;padding:12px 18px;font-size:13px;display:none;z-index:50;max-width:320px;}
   .toast.err{border-color:var(--debit);}
   .bar-wrap{display:flex;flex-direction:column;gap:10px;}
@@ -160,11 +159,6 @@
       <button class="btn" type="submit">Create account</button>
       <p class="err" id="register-err"></p>
     </form>
-
-    <div class="api-base">
-      <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:6px;">API base URL</label>
-      <input type="text" id="api-base-input" value="http://localhost:8000" />
-    </div>
   </div>
 </div>
 
@@ -189,13 +183,6 @@
       <section class="page active" id="page-dashboard">
         <h1 class="page-title display">Dashboard</h1>
         <p class="page-sub">Where things stand right now.</p>
-
-        <div class="toolbar" style="align-items:center;">
-          <select id="period-month" class="period-select" onchange="onPeriodChange()"></select>
-          <select id="period-year" class="period-select" onchange="onPeriodChange()"></select>
-          <button class="btn small ghost" onclick="jumpToCurrentMonth()">This month</button>
-          <span id="period-label" style="color:var(--muted);font-size:12.5px;margin-left:4px;"></span>
-        </div>
 
         <div class="stat-row">
           <div class="stat-card"><div class="label">Balance</div><div class="value amt" id="stat-balance">—</div></div>
@@ -339,7 +326,7 @@
 
 <script>
 /* ---------------- State & helpers ---------------- */
-let API_BASE = 'http://localhost:8000';
+let API_BASE = 'https://financetracker-gj4l.onrender.com';
 let ACCESS_TOKEN = null, REFRESH_TOKEN = null;
 let txnOffset = 0;
 const TXN_LIMIT = 10;
@@ -399,7 +386,6 @@ function switchAuthTab(tab){
 
 async function handleLogin(e){
   e.preventDefault();
-  API_BASE = document.getElementById('api-base-input').value.replace(/\/$/,'');
   const email = document.getElementById('login-email').value;
   const password = document.getElementById('login-password').value;
   const errEl = document.getElementById('login-err');
@@ -428,7 +414,6 @@ async function handleLogin(e){
 
 async function handleRegister(e){
   e.preventDefault();
-  API_BASE = document.getElementById('api-base-input').value.replace(/\/$/,'');
   const username = document.getElementById('reg-username').value;
   const email = document.getElementById('reg-email').value;
   const password = document.getElementById('reg-password').value;
@@ -463,8 +448,6 @@ function handleLogout(){
 }
 
 function enterApp(){
-  cachedPeriod = null;
-  selectedMonth = null; selectedYear = null;
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   switchPage('dashboard');
@@ -481,79 +464,10 @@ function switchPage(page){
   if(page==='insights') loadInsights();
 }
 
-let cachedPeriod = null;
-let selectedMonth = null, selectedYear = null;
-
-const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-
-async function getEffectivePeriod(){
-  if(cachedPeriod) return cachedPeriod;
-  const now = new Date();
-  let month = now.getMonth()+1, year = now.getFullYear();
-  try{
-    const res = await api('/analytics/recent_transactions?limit=1');
-    if(res.ok){
-      const list = await res.json();
-      const items = Array.isArray(list) ? list : (list.transactions||list.items||[]);
-      if(items.length){
-        const d = new Date(items[0].valueDate || items[0].date);
-        if(!isNaN(d)){ month = d.getMonth()+1; year = d.getFullYear(); }
-      }
-    }
-  }catch(e){ /* fall back to current month */ }
-  cachedPeriod = {month, year};
-  return cachedPeriod;
-}
-
-function populatePeriodSelectors(month, year){
-  const monthSel = document.getElementById('period-month');
-  const yearSel = document.getElementById('period-year');
-  if(!monthSel.options.length){
-    monthSel.innerHTML = MONTH_NAMES.map((name, i) => `<option value="${i+1}">${name}</option>`).join('');
-  }
-  if(!yearSel.options.length){
-    const nowYear = new Date().getFullYear();
-    const years = [];
-    for(let y = nowYear + 1; y >= nowYear - 5; y--) years.push(y);
-    if(!years.includes(year)) years.push(year);
-    years.sort((a,b)=>b-a);
-    yearSel.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
-  }
-  monthSel.value = month;
-  yearSel.value = year;
-  updatePeriodLabel();
-}
-
-function updatePeriodLabel(){
-  const now = new Date();
-  const isCurrent = selectedMonth === now.getMonth()+1 && selectedYear === now.getFullYear();
-  document.getElementById('period-label').textContent = isCurrent ? '' : '(viewing a past period)';
-}
-
-function onPeriodChange(){
-  selectedMonth = parseInt(document.getElementById('period-month').value, 10);
-  selectedYear = parseInt(document.getElementById('period-year').value, 10);
-  updatePeriodLabel();
-  loadDashboard();
-}
-
-function jumpToCurrentMonth(){
-  const now = new Date();
-  selectedMonth = now.getMonth()+1;
-  selectedYear = now.getFullYear();
-  populatePeriodSelectors(selectedMonth, selectedYear);
-  loadDashboard();
-}
-
 /* ---------------- Dashboard ---------------- */
 async function loadDashboard(){
-  if(selectedMonth === null || selectedYear === null){
-    const eff = await getEffectivePeriod();
-    selectedMonth = eff.month;
-    selectedYear = eff.year;
-  }
-  const month = selectedMonth, year = selectedYear;
-  populatePeriodSelectors(month, year);
+  const now = new Date();
+  const month = now.getMonth()+1, year = now.getFullYear();
   try{
     const [balRes, credRes, debRes, netRes, recentRes] = await Promise.all([
       api('/analytics/balance/'),
@@ -730,7 +644,6 @@ async function submitTxnForm(e){
       return false;
     }
     closeTxnForm();
-    cachedPeriod = null;
     toast(id ? 'Entry updated.' : 'Entry added.');
     loadTransactions(); loadDashboard();
   }catch(e){ errEl.textContent = 'Could not reach the API.'; }
@@ -742,7 +655,6 @@ async function deleteTxn(id){
     const res = await api(`/transactions/delete_transaction/${id}`, {method:'DELETE'});
     if(!res.ok){ toast('Could not delete this entry.', true); return; }
     toast('Entry deleted.');
-    cachedPeriod = null;
     loadTransactions(); loadDashboard();
   }catch(e){ toast('Could not reach the API.', true); }
 }
@@ -750,14 +662,10 @@ async function deleteTxn(id){
 /* ---------------- Budgets ---------------- */
 async function loadBudgets(){
   try{
-    if(selectedMonth === null || selectedYear === null){
-      const eff = await getEffectivePeriod();
-      selectedMonth = eff.month; selectedYear = eff.year;
-    }
-    const month = selectedMonth, year = selectedYear;
+    const now = new Date();
     const [budRes, statusRes] = await Promise.all([
       api('/budget/get_budget'),
-      api(`/budget/status?month=${month}&year=${year}`)
+      api(`/budget/status?month=${now.getMonth()+1}&year=${now.getFullYear()}`)
     ]);
     const budgets = budRes.ok ? await budRes.json() : [];
     const status = statusRes.ok ? await statusRes.json() : null;
@@ -831,7 +739,6 @@ async function handleUpload(input, kind){
     }
     statusEl.textContent = file.name + ' imported successfully.';
     toast('Statement imported.');
-    cachedPeriod = null;
     loadDashboard();
   }catch(e){ statusEl.textContent = 'Could not reach the API.'; }
   input.value = '';
@@ -842,12 +749,7 @@ async function loadInsights(){
   const el = document.getElementById('insights-text');
   el.innerHTML = '<li>Reading through this month\'s entries…</li>';
   try{
-    if(selectedMonth === null || selectedYear === null){
-      const eff = await getEffectivePeriod();
-      selectedMonth = eff.month; selectedYear = eff.year;
-    }
-    const month = selectedMonth, year = selectedYear;
-    const res = await api(`/analytics/insights?month=${month}&year=${year}`);
+    const res = await api('/analytics/insights');
     if(!res.ok){ el.innerHTML = '<li>Could not generate insights right now.</li>'; return; }
     const data = await res.json();
     const list = data.insights || data.inights || (typeof data === 'string' ? [data] : null);

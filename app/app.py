@@ -58,8 +58,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
-        "https://*.vercel.app",
-        # "https://finance-frontend.vercel.app",  # ← add your prod domain here
+        "https://financial-tracking-lzckwric8-pranav04076s-projects.vercel.app/",
+        "https://financetracker-gj4l.onrender.com"
     ],
     allow_credentials=True,
     allow_methods=["*"],

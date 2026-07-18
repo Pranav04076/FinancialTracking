@@ -161,7 +161,11 @@
       <p class="err" id="register-err"></p>
     </form>
 
+    <div class="api-base">
+      <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:6px;">API base URL</label>
+      <input type="text" id="api-base-input" value="http://localhost:8000" />
     </div>
+  </div>
 </div>
 
 <!-- ================= APP SHELL ================= -->
@@ -335,7 +339,7 @@
 
 <script>
 /* ---------------- State & helpers ---------------- */
-let API_BASE = 'https://financetracker-gj4l.onrender.com';
+let API_BASE = 'http://localhost:8000';
 let ACCESS_TOKEN = null, REFRESH_TOKEN = null;
 let txnOffset = 0;
 const TXN_LIMIT = 10;

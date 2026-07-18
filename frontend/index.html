@@ -836,12 +836,21 @@ async function handleUpload(input, kind){
       statusEl.textContent = formatErrDetail(d.detail) || 'Upload failed.';
       return;
     }
-    statusEl.textContent = file.name + ' imported successfully.';
-    toast('Statement imported.');
+    const result = await res.json().catch(()=>({}));
+    const inserted = result.transactions_inserted ?? result.Inserted;
+    const skipped = result.transactions_skipped ?? result.Skipped;
+    const detail = Number.isFinite(inserted)
+      ? ` ${inserted} transaction${inserted === 1 ? '' : 's'} imported${skipped ? `; ${skipped} duplicate${skipped === 1 ? '' : 's'} skipped` : ''}.`
+      : ' imported successfully.';
+    statusEl.textContent = file.name + detail;
+    toast(Number.isFinite(inserted) ? `${inserted} transaction${inserted === 1 ? '' : 's'} imported.` : 'Statement imported.');
     cachedPeriod = null;
     loadDashboard();
-  }catch(e){ statusEl.textContent = 'Could not reach the API.'; }
-  input.value = '';
+  }catch(e){
+    statusEl.textContent = 'Could not reach the API.';
+  }finally{
+    input.value = '';
+  }
 }
 
 /* ---------------- Insights ---------------- */

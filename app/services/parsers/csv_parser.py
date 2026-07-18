@@ -7,15 +7,31 @@ from app.ML.predictor import predict_category
 
 
 REQUIRED_COLUMNS = {"type", "mode", "amount", "valuedate", "narration"}
+TRANSACTION_ID_COLUMNS = ("txnid", "txn_id", "transaction_id")
 
 def parse_csv(file_path: str, user_id, db: Session) -> tuple[int, int]:
+    try:
+        df = pd.read_csv(file_path, on_bad_lines="skip")
+    except pd.errors.EmptyDataError as exc:
+        raise ValueError("The CSV file is empty.") from exc
+    except UnicodeDecodeError:
+        # Bank exports commonly use a Windows-compatible encoding.
+        df = pd.read_csv(file_path, on_bad_lines="skip", encoding="latin-1")
 
-    df = pd.read_csv(file_path, on_bad_lines="skip")
     df.columns = df.columns.str.strip().str.lower()
 
     missing = REQUIRED_COLUMNS - set(df.columns)
     if missing:
-        raise ValueError(f"Missing columns: {missing}")
+        raise ValueError("Missing required columns: " + ", ".join(sorted(missing)))
+
+    transaction_id_column = next(
+        (column for column in TRANSACTION_ID_COLUMNS if column in df.columns), None
+    )
+    if transaction_id_column:
+        df["txnid"] = df[transaction_id_column]
+    else:
+        # Transaction IDs are optional; imports without one are still valid.
+        df["txnid"] = pd.NA
 
     df = df[["type", "mode", "amount", "valuedate", "narration", "txnid"]]
 
@@ -29,7 +45,8 @@ def parse_csv(file_path: str, user_id, db: Session) -> tuple[int, int]:
     df = df.dropna(subset=["valuedate"])
 
     valid_types = {t.value for t in TransactionType}
-    df = df[df["type"].str.upper().isin(valid_types)]
+    df["type"] = df["type"].astype(str).str.strip().str.upper()
+    df = df[df["type"].isin(valid_types)]
 
     existing_txnid = set(
     row[0] for row in
@@ -46,10 +63,11 @@ def parse_csv(file_path: str, user_id, db: Session) -> tuple[int, int]:
 
         # skip if txnId already exists in database
         if txnid and txnid in existing_txnid:
-                skipped += 1
-                continue
+            skipped += 1
+            continue
 
         tx_type = TransactionType(row["type"].upper())
+        prediction = predict_category(str(row["narration"]).strip())
         transaction = Transaction(
             id=uuid4(),
             user_id=user_id,
@@ -59,15 +77,17 @@ def parse_csv(file_path: str, user_id, db: Session) -> tuple[int, int]:
             amount=float(row["amount"]),
             valueDate=row["valuedate"],
             narration=str(row["narration"]).strip(),
-            category = str(predict_category(transaction.narration)["category"]),
-            confidence = float(predict_category(transaction.narration)["confidence"])
+            category = str(prediction["category"]),
+            confidence = float(prediction["confidence"])
         )
         transactions.append(transaction)
+        if txnid:
+            existing_txnid.add(txnid)
         inserted += 1
 
-
-    db.bulk_save_objects(transactions)
-    db.commit()
+    if transactions:
+        db.bulk_save_objects(transactions)
+        db.commit()
 
     return inserted, skipped
 

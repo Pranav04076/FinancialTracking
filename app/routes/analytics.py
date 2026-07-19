@@ -87,7 +87,7 @@ def avg_transaction_route(month: int,
                 db: Session = Depends(get_db),
                 current_user: User = Depends(get_current_user)):
     
-    return avg_transaction(month, int, db, current_user.id)
+    return avg_transaction(month, year, db, current_user.id)
 
 @router.get("/transactions-between/")
 def transactions_between_route(

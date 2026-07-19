@@ -212,7 +212,7 @@ def get_monthly_savings(db: Session,
                                           extract("year", Transaction.valueDate)==year).scalar() or 0
     
     monthly_saving = income-expense
-    savings_rate = round((monthly_saving/income)*100, 2)
+    savings_rate = round((monthly_saving/income)*100, 2) if income else 0
 
     return {
         "month": month,

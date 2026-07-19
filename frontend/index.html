@@ -125,11 +125,33 @@
   .alert-item .pct{font-family:'IBM Plex Mono';font-size:13px;font-weight:600;}
   .alert-item.warning .pct{color:var(--gold);}
   .alert-item.exceeded .pct{color:var(--debit);}
+  .analytics-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;}
+  .analytics-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;}
+  .analytics-grid .panel{margin-bottom:0;}
+  .analytics-metric{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:18px 20px;min-height:104px;}
+  .analytics-metric .label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:9px;}
+  .analytics-metric .value{font:600 20px 'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;}
+  .analytics-metric.positive .value{color:var(--credit);}
+  .analytics-metric.negative .value{color:var(--debit);}
+  .analytics-metric .note{font-size:11px;color:var(--muted);margin-top:6px;}
+  .cashflow{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .cashflow-line{display:grid;grid-template-columns:66px 1fr 76px;gap:10px;align-items:center;font-size:12px;}
+  .cashflow-track{height:10px;background:var(--surface-2);overflow:hidden;border-radius:2px;}
+  .cashflow-fill{height:100%;background:var(--credit);}.cashflow-fill.expense{background:var(--debit);}
+  .trend-plot{height:190px;display:grid;grid-template-columns:52px minmax(0,1fr);gap:10px;}
+  .trend-y-axis{display:flex;flex-direction:column;justify-content:space-between;padding:0 0 18px;text-align:right;font:10px 'IBM Plex Mono',monospace;color:var(--muted);font-variant-numeric:tabular-nums;}
+  .trend-chart{display:grid;grid-template-columns:repeat(12,1fr);gap:7px;align-items:end;border-bottom:1px solid var(--line);padding:18px 4px 0;background-image:linear-gradient(to bottom,var(--line) 1px,transparent 1px);background-size:100% 25%;}
+  .trend-column{height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:7px;min-width:0;}
+  .trend-bar{width:100%;max-width:25px;min-height:3px;background:var(--gold);border-radius:2px 2px 0 0;transition:height .25s ease;}
+  .trend-column.current .trend-bar{background:var(--debit);}.trend-label{font:10px 'IBM Plex Mono',monospace;color:var(--muted);}
+  .analysis-highlights{display:grid;grid-template-columns:1fr 1fr;gap:12px;}.highlight{border-left:2px solid var(--line);padding:4px 0 4px 12px;min-width:0;}.highlight.expense{border-color:var(--debit);}.highlight.income{border-color:var(--credit);}.highlight .kind{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);}.highlight .amount{font:600 16px 'IBM Plex Mono',monospace;margin:5px 0;}.highlight .description{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.chart-note{font-size:11px;color:var(--muted);margin-top:14px;}
   @media (max-width: 800px){
     .shell{grid-template-columns:1fr;}
     .sidebar{display:none;}
     .stat-row{grid-template-columns:repeat(2,1fr);}
     .form-grid{grid-template-columns:1fr;}
+    .analytics-summary{grid-template-columns:repeat(2,1fr);}
+    .analytics-grid{grid-template-columns:1fr;}
   }
 </style>
 </head>
@@ -161,10 +183,6 @@
       <p class="err" id="register-err"></p>
     </form>
 
-    <div class="api-base">
-      <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:6px;">API base URL</label>
-      <input type="url" id="api-base-input" value="https://financetracker-gj4l.onrender.com" autocomplete="url" />
-    </div>
   </div>
 </div>
 
@@ -177,7 +195,8 @@
       <div class="nav-item" data-page="transactions" onclick="switchPage('transactions')"><span class="num">02</span> Transactions</div>
       <div class="nav-item" data-page="budgets" onclick="switchPage('budgets')"><span class="num">03</span> Budgets</div>
       <div class="nav-item" data-page="upload" onclick="switchPage('upload')"><span class="num">04</span> Import</div>
-      <div class="nav-item" data-page="insights" onclick="switchPage('insights')"><span class="num">05</span> Insights</div>
+      <div class="nav-item" data-page="analytics" onclick="switchPage('analytics')"><span class="num">05</span> Analytics</div>
+      <div class="nav-item" data-page="insights" onclick="switchPage('insights')"><span class="num">06</span> Insights</div>
       <div class="sidebar-foot">
         <div id="user-chip" style="font-size:12px;color:var(--muted);margin-bottom:6px;"></div>
         <button onclick="handleLogout()">Sign out →</button>
@@ -220,6 +239,49 @@
         <div class="panel">
           <div class="panel-head"><h3>Category breakdown, this month</h3></div>
           <div class="panel-body"><div class="bar-wrap" id="category-bars"><p class="empty">No spending recorded for this period.</p></div></div>
+        </div>
+      </section>
+
+      <!-- ANALYTICS -->
+      <section class="page" id="page-analytics">
+        <h1 class="page-title display">Analytics</h1>
+        <p class="page-sub">Your monthly ledger, read from every angle.</p>
+
+        <div class="toolbar" style="align-items:center;">
+          <select id="analytics-month" class="period-select" onchange="onAnalyticsPeriodChange()"></select>
+          <select id="analytics-year" class="period-select" onchange="onAnalyticsPeriodChange()"></select>
+          <button class="btn small ghost" onclick="jumpToAnalyticsCurrentMonth()">This month</button>
+        </div>
+
+        <div class="analytics-summary">
+          <div class="analytics-metric positive"><div class="label">Monthly income</div><div class="value" id="analysis-income">—</div><div class="note" id="analysis-income-note">Selected period</div></div>
+          <div class="analytics-metric negative"><div class="label">Monthly spending</div><div class="value" id="analysis-expense">—</div><div class="note" id="analysis-expense-note">Selected period</div></div>
+          <div class="analytics-metric"><div class="label">Net saved</div><div class="value" id="analysis-savings">—</div><div class="note" id="analysis-savings-note">Selected period</div></div>
+          <div class="analytics-metric"><div class="label">Average entry</div><div class="value" id="analysis-average">—</div><div class="note">Across credits and debits</div></div>
+        </div>
+
+        <div class="analytics-grid">
+          <div class="panel">
+            <div class="panel-head"><h3>Cash flow</h3><span class="badge" id="analysis-savings-rate">— saved</span></div>
+            <div class="panel-body"><div class="cashflow" id="analysis-cashflow"><p class="empty">Loading cash flow…</p></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>Largest entries</h3><span class="badge">This month</span></div>
+            <div class="panel-body"><div class="analysis-highlights" id="analysis-highlights"><p class="empty">Loading entries…</p></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>Spending trend</h3><span class="badge" id="analysis-trend-year">—</span></div>
+            <div class="panel-body"><div id="analysis-trend"><p class="empty">Loading trend…</p></div><p class="chart-note">Monthly debit total. The selected month is marked in red.</p></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>Where your money went</h3><span class="badge">By category</span></div>
+            <div class="panel-body"><div class="bar-wrap" id="analysis-categories"><p class="empty">Loading categories…</p></div></div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:24px;">
+          <div class="panel-head"><h3>Transactions in this period</h3><span class="badge" id="analysis-transaction-count">—</span></div>
+          <div class="panel-body" style="padding:0;"><table><thead><tr><th>Date</th><th>Narration</th><th>Mode</th><th style="text-align:right">Amount</th></tr></thead><tbody id="analysis-transactions"><tr><td colspan="4" class="empty">Loading transactions…</td></tr></tbody></table></div>
         </div>
       </section>
 
@@ -348,7 +410,6 @@ let API_BASE = DEFAULT_API_BASE;
 let ACCESS_TOKEN = null, REFRESH_TOKEN = null;
 let txnOffset = 0;
 
-document.getElementById('api-base-input').value = DEFAULT_API_BASE;
 const TXN_LIMIT = 10;
 
 function toast(msg, isErr){
@@ -406,7 +467,6 @@ function switchAuthTab(tab){
 
 async function handleLogin(e){
   e.preventDefault();
-  API_BASE = document.getElementById('api-base-input').value.replace(/\/$/,'');
   const email = document.getElementById('login-email').value;
   const password = document.getElementById('login-password').value;
   const errEl = document.getElementById('login-err');
@@ -435,7 +495,6 @@ async function handleLogin(e){
 
 async function handleRegister(e){
   e.preventDefault();
-  API_BASE = document.getElementById('api-base-input').value.replace(/\/$/,'');
   const username = document.getElementById('reg-username').value;
   const email = document.getElementById('reg-email').value;
   const password = document.getElementById('reg-password').value;
@@ -485,6 +544,7 @@ function switchPage(page){
   if(page==='dashboard') loadDashboard();
   if(page==='transactions') loadTransactions();
   if(page==='budgets') loadBudgets();
+  if(page==='analytics') loadAnalytics();
   if(page==='insights') loadInsights();
 }
 
@@ -550,6 +610,156 @@ function jumpToCurrentMonth(){
   selectedYear = now.getFullYear();
   populatePeriodSelectors(selectedMonth, selectedYear);
   loadDashboard();
+}
+
+function populateAnalyticsSelectors(month, year){
+  const monthSel = document.getElementById('analytics-month');
+  const yearSel = document.getElementById('analytics-year');
+  if(!monthSel.options.length){
+    monthSel.innerHTML = MONTH_NAMES.map((name, i) => `<option value="${i+1}">${name}</option>`).join('');
+  }
+  if(!yearSel.options.length){
+    const nowYear = new Date().getFullYear();
+    const years = [];
+    for(let y = nowYear + 1; y >= nowYear - 5; y--) years.push(y);
+    if(!years.includes(year)) years.push(year);
+    years.sort((a,b)=>b-a);
+    yearSel.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+  }
+  monthSel.value = month;
+  yearSel.value = year;
+}
+
+function onAnalyticsPeriodChange(){
+  selectedMonth = parseInt(document.getElementById('analytics-month').value, 10);
+  selectedYear = parseInt(document.getElementById('analytics-year').value, 10);
+  loadAnalytics();
+}
+
+function jumpToAnalyticsCurrentMonth(){
+  const now = new Date();
+  selectedMonth = now.getMonth()+1;
+  selectedYear = now.getFullYear();
+  loadAnalytics();
+}
+
+function safeText(value){
+  return String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+}
+
+async function jsonIfOk(response){
+  return response && response.ok ? response.json() : null;
+}
+
+function analysisMetric(id, value){
+  document.getElementById(id).textContent = fmt(value);
+}
+
+function renderCashflow(income, expense){
+  const max = Math.max(Number(income)||0, Number(expense)||0, 1);
+  document.getElementById('analysis-cashflow').innerHTML = `
+    <div class="cashflow-line"><span>Income</span><div class="cashflow-track"><div class="cashflow-fill" style="width:${Math.max(0, Number(income)||0)/max*100}%"></div></div><span class="amt" style="text-align:right;color:var(--credit)">${fmt(income)}</span></div>
+    <div class="cashflow-line"><span>Spent</span><div class="cashflow-track"><div class="cashflow-fill expense" style="width:${Math.max(0, Number(expense)||0)/max*100}%"></div></div><span class="amt" style="text-align:right;color:var(--debit)">${fmt(expense)}</span></div>`;
+}
+
+function renderAnalysisHighlights(expense, income){
+  const formatHighlight = (item, kind, color) => item
+    ? `<div class="highlight ${kind}"><div class="kind">Largest ${kind}</div><div class="amount" style="color:${color}">${fmt(item.amount)}</div><div class="description" title="${safeText(item.narration)}">${safeText(item.narration || 'No description')}</div><div class="chart-note">${safeText(item.date || '')}${item.mode ? ' · ' + safeText(item.mode) : ''}</div></div>`
+    : `<div class="highlight ${kind}"><div class="kind">Largest ${kind}</div><div class="chart-note">No ${kind} recorded in this period.</div></div>`;
+  document.getElementById('analysis-highlights').innerHTML = formatHighlight(expense, 'expense', 'var(--debit)') + formatHighlight(income, 'income', 'var(--credit)');
+}
+
+function renderSpendingTrend(data, year, month){
+  const byMonth = new Map((Array.isArray(data) ? data : []).map(item => [Number(item.month_number), Number(item.expense)||0]));
+  const values = Array.from({length:12}, (_, i) => byMonth.get(i+1)||0);
+  const dataMax = Math.max(...values, 1);
+  const roughStep = dataMax / 4;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(Math.max(roughStep, 1))));
+  const normalizedStep = roughStep / magnitude;
+  const step = (normalizedStep <= 1 ? 1 : normalizedStep <= 2 ? 2 : normalizedStep <= 5 ? 5 : 10) * magnitude;
+  const max = step * 4;
+  const axisValue = value => '₹' + Math.round(value).toLocaleString('en-IN');
+  const ticks = [max, step*3, step*2, step, 0];
+  document.getElementById('analysis-trend-year').textContent = year;
+  document.getElementById('analysis-trend').innerHTML = `
+    <div class="trend-plot">
+      <div class="trend-y-axis" aria-label="Spending amount in rupees">${ticks.map(axisValue).map(label => `<span>${label}</span>`).join('')}</div>
+      <div class="trend-chart">${values.map((value, index) => `
+        <div class="trend-column ${index+1===month?'current':''}" title="${MONTH_NAMES[index]}: ${fmt(value)}"><div class="trend-bar" style="height:${value/max*100}%"></div><span class="trend-label">${MONTH_NAMES[index].slice(0,1)}</span></div>`).join('')}</div>
+    </div>`;
+}
+
+function renderAnalysisCategories(data){
+  const entries = Array.isArray(data) ? data : [];
+  const wrap = document.getElementById('analysis-categories');
+  if(!entries.length){ wrap.innerHTML = '<p class="empty">No spending recorded for this period.</p>'; return; }
+  wrap.innerHTML = entries.map(item => `<div class="bar-row"><span title="${safeText(item.category)}">${safeText(item.category)}</span><div class="bar-track"><div class="bar-fill" style="width:${Math.min(100, Number(item.percentage)||0)}%"></div></div><span class="amt" style="text-align:right">${fmt(item.amount)}</span></div>`).join('');
+}
+
+function renderAnalysisTransactions(data){
+  const body = document.getElementById('analysis-transactions');
+  const transactions = data?.transactions || [];
+  document.getElementById('analysis-transaction-count').textContent = `${data?.total ?? transactions.length} entries`;
+  if(!transactions.length){ body.innerHTML = '<tr><td colspan="4" class="empty">No transactions in this period.</td></tr>'; return; }
+  body.innerHTML = transactions.map(t => `<tr><td>${safeText(t.date)}</td><td><span class="tick ${t.type==='CREDIT'?'credit':'debit'}"></span>${safeText(t.narration)}</td><td>${safeText(t.mode)}</td><td class="num amt" style="color:${t.type==='CREDIT'?'var(--credit)':'var(--debit)'}">${t.type==='CREDIT'?'+':'-'}${fmt(t.amount)}</td></tr>`).join('');
+}
+
+async function loadAnalytics(){
+  if(selectedMonth === null || selectedYear === null){
+    const effective = await getEffectivePeriod();
+    selectedMonth = effective.month;
+    selectedYear = effective.year;
+  }
+  const month = selectedMonth, year = selectedYear;
+  populateAnalyticsSelectors(month, year);
+  const start = `${year}-${String(month).padStart(2,'0')}-01`;
+  const end = `${year}-${String(month).padStart(2,'0')}-${new Date(year, month, 0).getDate()}`;
+  try{
+    // Each card is independent: a missing or temporarily failing endpoint must
+    // not leave the entire Analytics page stuck in its loading state.
+    const requestData = async path => {
+      try { return await jsonIfOk(await api(path)); }
+      catch (error) { console.warn('Analytics request failed:', path, error); return null; }
+    };
+    const [income, expense, net, largestExpense, largestIncome, average, savings, categories, trend, transactions] = await Promise.all([
+      requestData(`/analytics/monthly_income/?month=${month}&year=${year}`),
+      requestData(`/analytics/monthly_expense/?month=${month}&year=${year}`),
+      requestData(`/analytics/monthly_net/?month=${month}&year=${year}`),
+      requestData(`/analytics/largest_expense?month=${month}&year=${year}`),
+      requestData(`/analytics/largest_income?month=${month}&year=${year}`),
+      requestData(`/analytics/avg_transaction_amount/?month=${month}&year=${year}`),
+      requestData(`/analytics/monthly_savings?month=${month}&year=${year}`),
+      requestData(`/analytics/category-breakdown?month=${month}&year=${year}`),
+      requestData(`/analytics/spending_trends/?year=${year}`),
+      requestData(`/analytics/transactions-between/?start_date=${start}&end_date=${end}`)
+    ]);
+    const incomeValue = income?.monthly_income ?? net?.income ?? savings?.income ?? 0;
+    const expenseValue = expense?.monthly_expense ?? net?.expense ?? savings?.expense ?? 0;
+    const savingsValue = savings?.savings ?? net?.total_monthly_net ?? incomeValue-expenseValue;
+    analysisMetric('analysis-income', incomeValue);
+    analysisMetric('analysis-expense', expenseValue);
+    analysisMetric('analysis-savings', savingsValue);
+    analysisMetric('analysis-average', average?.avg_transaction_amount ?? 0);
+    document.getElementById('analysis-savings').parentElement.classList.toggle('positive', savingsValue >= 0);
+    document.getElementById('analysis-savings').parentElement.classList.toggle('negative', savingsValue < 0);
+    document.getElementById('analysis-savings-rate').textContent = `${Number(savings?.savings_rate ?? (incomeValue ? savingsValue/incomeValue*100 : 0)).toFixed(1)}% saved`;
+    renderCashflow(incomeValue, expenseValue);
+    renderAnalysisHighlights(largestExpense, largestIncome);
+    renderAnalysisCategories(categories);
+    renderSpendingTrend(trend, year, month);
+    renderAnalysisTransactions(transactions);
+    if(![income, expense, net, largestExpense, largestIncome, average, savings, categories, trend, transactions].some(Boolean)){
+      toast('Analytics data is unavailable right now. Please refresh or sign in again.', true);
+    }
+  }catch(e){
+    console.error('Analytics render failed:', e);
+    renderCashflow(0, 0);
+    renderAnalysisHighlights(null, null);
+    renderAnalysisCategories([]);
+    renderSpendingTrend([], year, month);
+    renderAnalysisTransactions(null);
+    toast('Could not load analytics.', true);
+  }
 }
 
 /* ---------------- Dashboard ---------------- */

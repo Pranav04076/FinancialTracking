@@ -672,9 +672,14 @@ function renderAnalysisHighlights(expense, income){
 function renderSpendingTrend(data, year, month){
   const byMonth = new Map((Array.isArray(data) ? data : []).map(item => [Number(item.month_number), Number(item.expense)||0]));
   const values = Array.from({length:12}, (_, i) => byMonth.get(i+1)||0);
-  const max = Math.max(...values, 1);
+  const dataMax = Math.max(...values, 1);
+  const roughStep = dataMax / 4;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(Math.max(roughStep, 1))));
+  const normalizedStep = roughStep / magnitude;
+  const step = (normalizedStep <= 1 ? 1 : normalizedStep <= 2 ? 2 : normalizedStep <= 5 ? 5 : 10) * magnitude;
+  const max = step * 4;
   const axisValue = value => '₹' + Math.round(value).toLocaleString('en-IN');
-  const ticks = [max, max*.75, max*.5, max*.25, 0];
+  const ticks = [max, step*3, step*2, step, 0];
   document.getElementById('analysis-trend-year').textContent = year;
   document.getElementById('analysis-trend').innerHTML = `
     <div class="trend-plot">

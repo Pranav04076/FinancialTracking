@@ -702,19 +702,24 @@ async function loadAnalytics(){
   const start = `${year}-${String(month).padStart(2,'0')}-01`;
   const end = `${year}-${String(month).padStart(2,'0')}-${new Date(year, month, 0).getDate()}`;
   try{
-    const results = await Promise.all([
-      api(`/analytics/monthly_income/?month=${month}&year=${year}`),
-      api(`/analytics/monthly_expense/?month=${month}&year=${year}`),
-      api(`/analytics/monthly_net/?month=${month}&year=${year}`),
-      api(`/analytics/largest_expense?month=${month}&year=${year}`),
-      api(`/analytics/largest_income?month=${month}&year=${year}`),
-      api(`/analytics/avg_transaction_amount/?month=${month}&year=${year}`),
-      api(`/analytics/monthly_savings?month=${month}&year=${year}`),
-      api(`/analytics/category-breakdown?month=${month}&year=${year}`),
-      api(`/analytics/spending_trends/?year=${year}`),
-      api(`/analytics/transactions-between/?start_date=${start}&end_date=${end}`)
+    // Each card is independent: a missing or temporarily failing endpoint must
+    // not leave the entire Analytics page stuck in its loading state.
+    const requestData = async path => {
+      try { return await jsonIfOk(await api(path)); }
+      catch (error) { console.warn('Analytics request failed:', path, error); return null; }
+    };
+    const [income, expense, net, largestExpense, largestIncome, average, savings, categories, trend, transactions] = await Promise.all([
+      requestData(`/analytics/monthly_income/?month=${month}&year=${year}`),
+      requestData(`/analytics/monthly_expense/?month=${month}&year=${year}`),
+      requestData(`/analytics/monthly_net/?month=${month}&year=${year}`),
+      requestData(`/analytics/largest_expense?month=${month}&year=${year}`),
+      requestData(`/analytics/largest_income?month=${month}&year=${year}`),
+      requestData(`/analytics/avg_transaction_amount/?month=${month}&year=${year}`),
+      requestData(`/analytics/monthly_savings?month=${month}&year=${year}`),
+      requestData(`/analytics/category-breakdown?month=${month}&year=${year}`),
+      requestData(`/analytics/spending_trends/?year=${year}`),
+      requestData(`/analytics/transactions-between/?start_date=${start}&end_date=${end}`)
     ]);
-    const [income, expense, net, largestExpense, largestIncome, average, savings, categories, trend, transactions] = await Promise.all(results.map(jsonIfOk));
     const incomeValue = income?.monthly_income ?? net?.income ?? savings?.income ?? 0;
     const expenseValue = expense?.monthly_expense ?? net?.expense ?? savings?.expense ?? 0;
     const savingsValue = savings?.savings ?? net?.total_monthly_net ?? incomeValue-expenseValue;
@@ -730,7 +735,16 @@ async function loadAnalytics(){
     renderAnalysisCategories(categories);
     renderSpendingTrend(trend, year, month);
     renderAnalysisTransactions(transactions);
+    if(![income, expense, net, largestExpense, largestIncome, average, savings, categories, trend, transactions].some(Boolean)){
+      toast('Analytics data is unavailable right now. Please refresh or sign in again.', true);
+    }
   }catch(e){
+    console.error('Analytics render failed:', e);
+    renderCashflow(0, 0);
+    renderAnalysisHighlights(null, null);
+    renderAnalysisCategories([]);
+    renderSpendingTrend([], year, month);
+    renderAnalysisTransactions(null);
     toast('Could not load analytics.', true);
   }
 }

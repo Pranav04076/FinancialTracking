@@ -138,7 +138,9 @@
   .cashflow-line{display:grid;grid-template-columns:66px 1fr 76px;gap:10px;align-items:center;font-size:12px;}
   .cashflow-track{height:10px;background:var(--surface-2);overflow:hidden;border-radius:2px;}
   .cashflow-fill{height:100%;background:var(--credit);}.cashflow-fill.expense{background:var(--debit);}
-  .trend-chart{height:190px;display:grid;grid-template-columns:repeat(12,1fr);gap:7px;align-items:end;border-bottom:1px solid var(--line);padding:18px 4px 0;}
+  .trend-plot{height:190px;display:grid;grid-template-columns:52px minmax(0,1fr);gap:10px;}
+  .trend-y-axis{display:flex;flex-direction:column;justify-content:space-between;padding:0 0 18px;text-align:right;font:10px 'IBM Plex Mono',monospace;color:var(--muted);font-variant-numeric:tabular-nums;}
+  .trend-chart{display:grid;grid-template-columns:repeat(12,1fr);gap:7px;align-items:end;border-bottom:1px solid var(--line);padding:18px 4px 0;background-image:linear-gradient(to bottom,var(--line) 1px,transparent 1px);background-size:100% 25%;}
   .trend-column{height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:7px;min-width:0;}
   .trend-bar{width:100%;max-width:25px;min-height:3px;background:var(--gold);border-radius:2px 2px 0 0;transition:height .25s ease;}
   .trend-column.current .trend-bar{background:var(--debit);}.trend-label{font:10px 'IBM Plex Mono',monospace;color:var(--muted);}
@@ -671,9 +673,15 @@ function renderSpendingTrend(data, year, month){
   const byMonth = new Map((Array.isArray(data) ? data : []).map(item => [Number(item.month_number), Number(item.expense)||0]));
   const values = Array.from({length:12}, (_, i) => byMonth.get(i+1)||0);
   const max = Math.max(...values, 1);
+  const axisValue = value => '₹' + Math.round(value).toLocaleString('en-IN');
+  const ticks = [max, max*.75, max*.5, max*.25, 0];
   document.getElementById('analysis-trend-year').textContent = year;
-  document.getElementById('analysis-trend').innerHTML = values.map((value, index) => `
-    <div class="trend-column ${index+1===month?'current':''}" title="${MONTH_NAMES[index]}: ${fmt(value)}"><div class="trend-bar" style="height:${value/max*100}%"></div><span class="trend-label">${MONTH_NAMES[index].slice(0,1)}</span></div>`).join('');
+  document.getElementById('analysis-trend').innerHTML = `
+    <div class="trend-plot">
+      <div class="trend-y-axis" aria-label="Spending amount in rupees">${ticks.map(axisValue).map(label => `<span>${label}</span>`).join('')}</div>
+      <div class="trend-chart">${values.map((value, index) => `
+        <div class="trend-column ${index+1===month?'current':''}" title="${MONTH_NAMES[index]}: ${fmt(value)}"><div class="trend-bar" style="height:${value/max*100}%"></div><span class="trend-label">${MONTH_NAMES[index].slice(0,1)}</span></div>`).join('')}</div>
+    </div>`;
 }
 
 function renderAnalysisCategories(data){
